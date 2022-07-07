@@ -15,7 +15,6 @@ The EJBCA Certificate Signing Request Proxy for K8s forwards certificate signing
 * [Getting Started](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/docs/getting-started.md)
 * Usage
   * [Documentation](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/docs/index.md)
-* [Contributing](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/CONTRIBUTING.md)
 * [License](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/LICENSE)
 
 ## Requirements
