@@ -26,6 +26,6 @@ jobs:
 
   call-update-catalog-workflow:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    uses: Keyfactor/actions/.github/workflows/update-catalog.yml@main
+    uses: Keyfactor/actions/.github/workflows/update-catalog.yml@add-apiclient-catalog
     secrets: 
       token: ${{ secrets.SDK_SYNC_PAT }}
