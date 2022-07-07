@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.ejbca.configMapName }}
+data:
+  config.yaml: |
+  {{- toYaml .Values.ejbca | nindent 4}}
+    healthcheckPort: {{ .Values.service.healthcheckPort}}

@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ejbca-csr-signer.fullname" . }}
+  labels:
+    {{- include "ejbca-csr-signer.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "ejbca-csr-signer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "ejbca-csr-signer.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ejbca-csr-signer.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.healthcheckPort }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.service.healthcheckPort }}
+            initialDelaySeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.service.healthcheckPort }}
+            initialDelaySeconds: 30
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: {{ .Values.ejbca.credsSecretName }}
+              mountPath: /credentials
+            - name: {{ .Values.ejbca.configMapName }}
+              mountPath: /config
+            {{- if .Values.ejbca.caCertConfigmapName }}
+            - name: {{ .Values.ejbca.caCertConfigmapName }}
+              mountPath: /etc/ssl/certs/
+            {{- end }}
+            {{- if .Values.ejbca.clientCertSecretName }}
+            - name: {{ .Values.ejbca.clientCertSecretName }}
+              mountPath: /clientcert
+            {{- end }}
+          env:
+            - name: SERVICE_NAME
+              value: {{ include "ejbca-csr-signer.fullname" . }}
+            {{- if .Values.ejbca.clientCertSecretName }}
+            - name: CLIENT_CERT_DIR
+              value: clientcert
+            {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: {{ .Values.ejbca.credsSecretName }}
+          secret:
+            secretName: {{ .Values.ejbca.credsSecretName }}
+        - name: {{ .Values.ejbca.configMapName }}
+          configMap:
+            name: {{ .Values.ejbca.configMapName }}
+        {{- if .Values.ejbca.caCertConfigmapName }}
+        - name: {{ .Values.ejbca.caCertConfigmapName }}
+          configMap:
+            name: {{ .Values.ejbca.caCertConfigmapName }}
+        {{- end }}
+        {{- if .Values.ejbca.clientCertSecretName }}
+        - name: {{ .Values.ejbca.clientCertSecretName }}
+          secret:
+            secretName: {{ .Values.ejbca.clientCertSecretName }}
+        {{- end }}
