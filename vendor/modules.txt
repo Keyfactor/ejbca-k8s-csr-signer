@@ -1,4 +1,4 @@
-# github.com/Keyfactor/ejbca-go-client v1.2.2
+# github.com/Keyfactor/ejbca-go-client v1.3.4
 ## explicit; go 1.18
 github.com/Keyfactor/ejbca-go-client/pkg/ejbca
 # github.com/PuerkitoBio/purell v1.1.1
