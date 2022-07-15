@@ -14,13 +14,13 @@ nameOverride: ""
 fullnameOverride: ""
 
 ejbca:
-  useEST: false
+  useEST: true
   defaultESTAlias: hayden
   defaultCertificateProfileName: Authentication-2048-3y
   defaultEndEntityProfileName: AdminInternal
   defaultCertificateAuthorityName: ManagementCA
   credsSecretName: ejbca-credentials
-  clientCertSecretName: ejbca-client-cert
+  #clientCertSecretName: ejbca-client-cert
   #caCertConfigmapName: ejbca-ca-cert
   configMapName: ejbca-config
 

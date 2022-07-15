@@ -40,6 +40,7 @@ func main() {
 		DefaultCertificateProfileName:   serverConfig.DefaultCertificateProfileName,
 		DefaultEndEntityProfileName:     serverConfig.DefaultEndEntityProfileName,
 		DefaultCertificateAuthorityName: serverConfig.DefaultCertificateAuthorityName,
+		DefaultESTAlias:                 serverConfig.DefaultESTAlias,
 	}
 
 	ejbcaFactory := ejbca.ClientFactory(credentials.Hostname, ejbcaConfig)

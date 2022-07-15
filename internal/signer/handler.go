@@ -142,18 +142,9 @@ func restEnrollCSR(client *ejbca.Client, csr *certificates.CertificateSigningReq
 		return err, nil
 	}
 
-	cert, err := base64.StdEncoding.DecodeString(resp.Certificate)
-	if err != nil {
-		return err, nil
-	}
-	chain = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert})
+	chain = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: resp.Certificate.Raw})
 	for _, certificate := range resp.CertificateChain {
-		leaf, err := base64.StdEncoding.DecodeString(certificate)
-		if err != nil {
-			return err, nil
-		}
-
-		chain = append(chain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leaf})...)
+		chain = append(chain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw})...)
 	}
 
 	return nil, chain

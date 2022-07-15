@@ -3,7 +3,7 @@ module github.com/Keyfactor/ejbca-k8s-csr-signer
 go 1.18
 
 require (
-	github.com/Keyfactor/ejbca-go-client v1.2.2
+	github.com/Keyfactor/ejbca-go-client v1.3.4
 	github.com/sirupsen/logrus v1.8.1
 	github.com/valyala/fasthttp v1.16.0
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
