@@ -1,4 +1,4 @@
-VERSION=0.2.70
+VERSION=0.2.75
 
 CHART_NAME = ejbca-csr-signer-0.1.0.tgz
 HELM_NAMESPACE=ejbca
