@@ -23,6 +23,7 @@ ejbca:
   #clientCertSecretName: ejbca-client-cert
   #caCertConfigmapName: ejbca-ca-cert
   configMapName: ejbca-config
+  includeChain: false
 
 serviceAccount:
   # Specifies whether a service account should be created

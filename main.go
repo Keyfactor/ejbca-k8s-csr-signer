@@ -93,7 +93,7 @@ func main() {
 	informerFactory := informers.NewSharedInformerFactory(k8sClient, 0)
 	csrInformer := informerFactory.Certificates().V1().CertificateSigningRequests()
 
-	certificateController := signer.NewCertificateController(name, k8sClient, csrInformer, ejbcaClient)
+	certificateController := signer.NewCertificateController(name, k8sClient, csrInformer, ejbcaClient, serverConfig.IncludeChain)
 	informerFactory.Start(ctx.Done())
 
 	go certificateController.Run(ctx, 3)

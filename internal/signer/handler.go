@@ -40,12 +40,12 @@ func (cc *CertificateController) handleRequests(ctx context.Context, csr *certif
 
 	var chain []byte
 	if cc.ejbcaClient.EST == nil {
-		err, chain = restEnrollCSR(cc.ejbcaClient, csr)
+		err, chain = restEnrollCSR(cc.ejbcaClient, csr, cc.includeChain)
 		if err != nil {
 			return err
 		}
 	} else {
-		err, chain = estEnrollCSR(cc.ejbcaClient.EST, csr)
+		err, chain = estEnrollCSR(cc.ejbcaClient.EST, csr, cc.includeChain)
 		if err != nil {
 			return err
 		}
@@ -63,7 +63,7 @@ func (cc *CertificateController) handleRequests(ctx context.Context, csr *certif
 	return nil
 }
 
-func estEnrollCSR(client *ejbca.ESTClient, csr *certificates.CertificateSigningRequest) (error, []byte) {
+func estEnrollCSR(client *ejbca.ESTClient, csr *certificates.CertificateSigningRequest, includeChain bool) (error, []byte) {
 	handlerLog.Debugln("Enrolling CSR with EST client")
 	annotations := csr.GetAnnotations()
 	alias := ""
@@ -82,7 +82,8 @@ func estEnrollCSR(client *ejbca.ESTClient, csr *certificates.CertificateSigningR
 		return err, nil
 	}
 
-	// Grab the CA chain of trust from cacerts
+	// Grab the CA chain of trust from cacerts if includeChain is true
+
 	chain, err := client.CaCerts(alias)
 	if err != nil {
 		return err, nil
@@ -93,14 +94,16 @@ func estEnrollCSR(client *ejbca.ESTClient, csr *certificates.CertificateSigningR
 	for _, cert := range leaf {
 		leafAndChain = append(leafAndChain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
 	}
-	for _, cert := range chain {
-		leafAndChain = append(leafAndChain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
+	if includeChain {
+		for _, cert := range chain {
+			leafAndChain = append(leafAndChain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
+		}
 	}
 
 	return nil, leafAndChain
 }
 
-func restEnrollCSR(client *ejbca.Client, csr *certificates.CertificateSigningRequest) (error, []byte) {
+func restEnrollCSR(client *ejbca.Client, csr *certificates.CertificateSigningRequest, includeChain bool) (error, []byte) {
 	handlerLog.Debugln("Enrolling CSR with REST client")
 	// Configure PKCS10 enrollment with metadata annotations, if they exist.
 	config := &ejbca.PKCS10CSREnrollment{
@@ -143,8 +146,10 @@ func restEnrollCSR(client *ejbca.Client, csr *certificates.CertificateSigningReq
 	}
 
 	chain = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: resp.Certificate.Raw})
-	for _, certificate := range resp.CertificateChain {
-		chain = append(chain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw})...)
+	if includeChain {
+		for _, certificate := range resp.CertificateChain {
+			chain = append(chain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw})...)
+		}
 	}
 
 	return nil, chain
