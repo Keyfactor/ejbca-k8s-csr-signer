@@ -18,7 +18,7 @@ operating system, since the installation of Istio is easier.
 |---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 ## Getting Started
-1. Configure a new EJBCA EST profile. todo explain some crazy stuff Sven did to get this working
+1. Configure a new EJBCA EST profile.
 2. Deploy the EJBCA K8s CSR Controller
    1. Clone the repository
     ```shell
