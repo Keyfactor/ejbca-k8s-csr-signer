@@ -40,6 +40,8 @@ type CertificateController struct {
 	queue workqueue.RateLimitingInterface
 
 	ejbcaClient *ejbca.Client
+
+	includeChain bool
 }
 
 func NewCertificateController(
@@ -47,6 +49,7 @@ func NewCertificateController(
 	kubeClient clientset.Interface,
 	csrInformer certificatesinformers.CertificateSigningRequestInformer,
 	ejbcaClient *ejbca.Client,
+	includeChain bool,
 ) *CertificateController {
 	signerLog.Infof("Creating new Certificate Controller called '%s'", name)
 
@@ -63,14 +66,15 @@ func NewCertificateController(
 			// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
 			&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
 		), "certificate"),
-		ejbcaClient: ejbcaClient,
+		ejbcaClient:  ejbcaClient,
+		includeChain: includeChain,
 	}
 
 	// Manage the addition/update of certificate requests
 	csrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			csr := obj.(*certificates.CertificateSigningRequest)
-			signerLog.Infof("Adding certificate request %s", csr.Name)
+			signerLog.Infof("Adding certificate request with name %s:\n%s", csr.Name, csr.Spec.Request)
 			cc.enqueueCertificateRequest(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
