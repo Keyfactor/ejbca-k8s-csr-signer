@@ -40,12 +40,12 @@ func (cc *CertificateController) handleRequests(ctx context.Context, csr *certif
 
 	var chain []byte
 	if cc.ejbcaClient.EST == nil {
-		err, chain = restEnrollCSR(cc.ejbcaClient, csr, cc.includeChain)
+		err, chain = restEnrollCSR(cc.ejbcaClient, csr, cc.chainDepth)
 		if err != nil {
 			return err
 		}
 	} else {
-		err, chain = estEnrollCSR(cc.ejbcaClient.EST, csr, cc.includeChain)
+		err, chain = estEnrollCSR(cc.ejbcaClient.EST, csr, cc.chainDepth)
 		if err != nil {
 			return err
 		}
@@ -63,7 +63,7 @@ func (cc *CertificateController) handleRequests(ctx context.Context, csr *certif
 	return nil
 }
 
-func estEnrollCSR(client *ejbca.ESTClient, csr *certificates.CertificateSigningRequest, includeChain bool) (error, []byte) {
+func estEnrollCSR(client *ejbca.ESTClient, csr *certificates.CertificateSigningRequest, chainDepth int) (error, []byte) {
 	handlerLog.Debugln("Enrolling CSR with EST client")
 	annotations := csr.GetAnnotations()
 	alias := ""
@@ -82,28 +82,33 @@ func estEnrollCSR(client *ejbca.ESTClient, csr *certificates.CertificateSigningR
 		return err, nil
 	}
 
-	// Grab the CA chain of trust from cacerts if includeChain is true
-
+	// Grab the CA chain of trust from cacerts
 	chain, err := client.CaCerts(alias)
 	if err != nil {
 		return err, nil
 	}
 
-	// Encode each to PEM format and append them
-	var leafAndChain []byte
-	for _, cert := range leaf {
-		leafAndChain = append(leafAndChain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
-	}
-	if includeChain {
-		for _, cert := range chain {
-			leafAndChain = append(leafAndChain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})...)
-		}
+	// Build a list of the leaf and the whole chain
+	var leafAndChain []*x509.Certificate
+	leafAndChain = append(leafAndChain, leaf[0])
+	for _, cert := range chain {
+		leafAndChain = append(leafAndChain, cert)
 	}
 
-	return nil, leafAndChain
+	// The two scenarios where we want the whole chain are when chainDepth is 0 or greater than the length of the whole chain
+	// IE if chainDepth == len(leafAndChain), the whole chain will be appended anyway
+	var pemChain []byte
+	if chainDepth == 0 || chainDepth > len(leafAndChain) {
+		chainDepth = len(leafAndChain)
+	}
+	for i := 0; i < chainDepth; i++ {
+		pemChain = append(pemChain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafAndChain[i].Raw})...)
+	}
+
+	return nil, pemChain
 }
 
-func restEnrollCSR(client *ejbca.Client, csr *certificates.CertificateSigningRequest, includeChain bool) (error, []byte) {
+func restEnrollCSR(client *ejbca.Client, csr *certificates.CertificateSigningRequest, chainDepth int) (error, []byte) {
 	handlerLog.Debugln("Enrolling CSR with REST client")
 	// Configure PKCS10 enrollment with metadata annotations, if they exist.
 	config := &ejbca.PKCS10CSREnrollment{
@@ -134,25 +139,47 @@ func restEnrollCSR(client *ejbca.Client, csr *certificates.CertificateSigningReq
 	if err != nil {
 		return err, nil
 	}
-	config.Username = parsedRequest.Subject.CommonName
+	if parsedRequest.Subject.CommonName != "" {
+		config.Username = parsedRequest.Subject.CommonName
+	} else {
+		config.Username = randStringFromCharSet(10)
+	}
 
 	// Generate random password as it will likely never be used again
 	config.Password = randStringFromCharSet(10)
 
-	var chain []byte
+	var leafAndChain []*x509.Certificate
 	resp, err := client.EnrollPKCS10(config)
 	if err != nil {
 		return err, nil
 	}
 
-	chain = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: resp.Certificate.Raw})
-	if includeChain {
-		for _, certificate := range resp.CertificateChain {
-			chain = append(chain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw})...)
-		}
+	// Build a list of the leaf and the whole chain
+	leafAndChain = append(leafAndChain, resp.Certificate)
+	for _, cert := range resp.CertificateChain {
+		leafAndChain = append(leafAndChain, cert)
 	}
 
-	return nil, chain
+	// Then, construct the PEM list according to chainDepth
+
+	/*
+	   chainDepth = 0 => whole chain
+	   chainDepth = 1 => just the leaf
+	   chainDepth = 2 => leaf + issuer
+	   chainDepth = 3 => leaf + issuer + issuer
+	   etc
+	*/
+
+	// The two scenarios where we want the whole chain are when chainDepth is 0 or greater than the length of the whole chain
+	var pemChain []byte
+	if chainDepth == 0 || chainDepth > len(leafAndChain) {
+		chainDepth = len(leafAndChain)
+	}
+	for i := 0; i < chainDepth; i++ {
+		pemChain = append(pemChain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafAndChain[i].Raw})...)
+	}
+
+	return nil, pemChain
 }
 
 // From https://github.com/hashicorp/terraform-plugin-sdk/blob/v2.10.0/helper/acctest/random.go#L51

@@ -14,16 +14,16 @@ nameOverride: ""
 fullnameOverride: ""
 
 ejbca:
-  useEST: true
+  useEST: false
   defaultESTAlias: hayden
-  defaultCertificateProfileName: Authentication-2048-3y
-  defaultEndEntityProfileName: AdminInternal
-  defaultCertificateAuthorityName: ManagementCA
+  defaultCertificateProfileName: istioAuth-3d
+  defaultEndEntityProfileName: haydenEndEntity
+  defaultCertificateAuthorityName: IT-Sub-CA
   credsSecretName: ejbca-credentials
-  #clientCertSecretName: ejbca-client-cert
+  clientCertSecretName: ejbca-client-cert
   #caCertConfigmapName: ejbca-ca-cert
   configMapName: ejbca-config
-  includeChain: false
+  chainDepth: 4
 
 serviceAccount:
   # Specifies whether a service account should be created

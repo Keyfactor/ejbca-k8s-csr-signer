@@ -41,7 +41,7 @@ type CertificateController struct {
 
 	ejbcaClient *ejbca.Client
 
-	includeChain bool
+	chainDepth int
 }
 
 func NewCertificateController(
@@ -49,7 +49,7 @@ func NewCertificateController(
 	kubeClient clientset.Interface,
 	csrInformer certificatesinformers.CertificateSigningRequestInformer,
 	ejbcaClient *ejbca.Client,
-	includeChain bool,
+	chainDepth int,
 ) *CertificateController {
 	signerLog.Infof("Creating new Certificate Controller called '%s'", name)
 
@@ -66,8 +66,8 @@ func NewCertificateController(
 			// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
 			&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
 		), "certificate"),
-		ejbcaClient:  ejbcaClient,
-		includeChain: includeChain,
+		ejbcaClient: ejbcaClient,
+		chainDepth:  chainDepth,
 	}
 
 	// Manage the addition/update of certificate requests
