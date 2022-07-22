@@ -7,60 +7,77 @@
     * [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/)
 * Kubernetes (v1.19 +)
     * [Kubernetes](https://kubernetes.io/docs/tasks/tools/) or [Minikube](https://minikube.sigs.k8s.io/docs/start/)
-    * Or [Kubernetes with Docker Desktop](https://docs.docker.com/desktop/kubernetes/)
-* Helm (to deploy Kubernetes)
+* Helm (to deploy CSR Controller)
     * [Helm](https://helm.sh/docs/intro/install/) (v3.1 +)
 
 For this demonstration, it's recommended that a distribution of Linux is used as the host
 operating system, since the installation of Istio is easier.
 
-| :memo:        | This guide is based on the [Istio Getting Started](https://istio.io/latest/docs/setup/getting-started/) guide and the [Istio External PKI](https://istio.io/latest/docs/tasks/security/cert-management/custom-ca-k8s/) guide |
-|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+## Configure EJBCA and retrieve CA certificate chain
+1. Configure an EST profile in EJBCA.
+2. Download CA certificate and chain
+```shell
+curl https://<hostname to EJBCA>/.well-known/est/<EST Alias>/cacerts -o cacerts.p7.b64
+openssl base64 -in cacerts.p7.b64 -out cacerts.p7 -d
+openssl pkcs7 -inform DER -in cacerts.p7 -print_certs -out cacerts.pem
+```
+
+## Configure K8s Environment
+1. Install Minikube using the [installation steps](https://minikube.sigs.k8s.io/docs/start/)
+   1. For example:
+   ```shell
+   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+   sudo install minikube-linux-amd64 /usr/local/bin/minikube
+   ```
+2. Install CA certificate from above in `~/.minikube/files/etc/external-ca-cert/root-cert.pem`
+```shell
+mkdir -p ~/.minikube/files/etc/external-ca-cert
+cp <path to PEM encoded CA certificate chain> ~/.minikube/files/etc/external-ca-cert/root-cert.pem
+```
+3. Start Minikube
+```shell
+minikube start
+```
 
 ## Getting Started
-1. Configure a new EJBCA EST profile.
-2. Deploy the EJBCA K8s CSR Controller
+1. Deploy the EJBCA K8s CSR Controller
    1. Clone the repository
     ```shell
-    $ git clone https://github.com/Keyfactor/ejbca-k8s-csr-signer.git
+    git clone https://github.com/Keyfactor/ejbca-k8s-csr-signer.git
     ```
    2. Create a new K8s namespace for the CSR proxy.
     ```shell
-    $ kubectl create namespace ejbca
+    kubectl create namespace ejbca
     ```
    3. Create a new K8s secret containing required credentials for operating with the CSR proxy. A [sample credentials file](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/credentials/sample.yaml) is provided as a reference. Ensure that the hostname and 
     ```shell
-    $ kubectl -n ejbca create secret generic ejbca-credentials --from-file ./credentials/credentials.yaml
+    kubectl -n ejbca create secret generic ejbca-credentials --from-file ./credentials/credentials.yaml
     ```
    4. Deploy the EJBCA K8s CSR Controller using Helm
     ```shell
-    $ helm package charts
-    $ helm install -n ejbca ejbca-k8s -f charts/values.yaml ./ejbca-csr-signer-0.1.0.tgz
+    helm package charts
+    helm install -n ejbca ejbca-k8s -f charts/values.yaml ./ejbca-csr-signer-0.1.0.tgz
     ```
    5. Open a new terminal, and run the following command to track the activity of the CSR controller.
     ```shell
-    $ kubectl -n ejbca logs $(kubectl get pods --template '{{range .items}}{{.metadata.name}}{{end}}' -n ejbca) -f
+    kubectl -n ejbca logs $(kubectl get pods --template '{{range .items}}{{.metadata.name}}{{end}}' -n ejbca) -f
     ```
-3. Install Istio (based on [Getting Started with Istio](https://istio.io/latest/docs/setup/getting-started/))
+2. Install Istio
    1. Run the following command to download the installation for your OS, or navigate to the Istio [release page](https://github.com/istio/istio/releases/tag/1.14.1) and download the release according to your host OS.
     ```shell
-    $ curl -L https://istio.io/downloadIstio | sh -
-    $ cd istio-1.14.1
+    curl -L https://istio.io/downloadIstio | sh -
+    cd istio-1.14.1
+    export PATH=$PWD/bin:$PATH
+    istioctl install --set profile=demo -y
     ```
-   3. Add a namespace label to instruct Istio to automatically inject the Envoy sidecar proxy.
-    ```shell
-    $ kubectl label namespace default istio-injection=enabled
-    ```
-4. Load the root CA certificate of the CA used by the EST alias into a K8s secret. 
-   1. Ensure that the certificate is in PEM format, and that it is Base64 encoded. This can be accomplished by running the following commands:
-    ```shell
-    $ curl https://<hostname to EJBCA>/.well-known/est/<EST Alias>/cacerts -o cacerts.p7.b64
-    $ openssl base64 -in cacerts.p7.b64 -out cacerts.p7 -d
-    $ openssl pkcs7 -inform DER -in cacerts.p7 -print_certs -out cacerts.pem
-    ```
+3. Load the root CA certificate of the CA used by the EST alias into a K8s secret. 
+   1. Encode the certificate from above in Base64 and remove newline characters.
+   ```shell
+   base64 <path to PEM encoded CA cert chain> | tr -d \\n
+   ```
    2. Create a K8s secret containing the root CA certificate
     ```shell
-    $ touch external-ca-secret.yaml
+    touch external-ca-secret.yaml
     ```
     ```yaml
     apiVersion: v1
@@ -73,12 +90,12 @@ operating system, since the installation of Istio is easier.
     ```
    3. Apply the secret
     ```shell
-    $ kubectl apply -f external-ca-secret.yaml
+    kubectl apply -f external-ca-secret.yaml
     ```
-5. Deploy Istio with the 'demo' configuration profile
+4. Deploy Istio with the 'demo' configuration profile
    1. Create K8s deployment file
     ```shell
-    $ touch istio.yaml
+    touch istio.yaml
     ```
    2. Populate it with the following contents:
     ```yaml
@@ -128,37 +145,27 @@ operating system, since the installation of Istio is easier.
     ```
    3. Apply the configuration
     ```shell
-    $ istioctl install --set profile=demo -f ./istio.yaml
+    istioctl install --set profile=demo -f ./istio.yaml
     ```
-6. Deploy the demo book application
+5. Deploy the demo book application. An install script can be found in `sample/deployBookInfo.sh`
   ```shell
-  $ kubectl create ns bookinfo
-  $ kubectl apply -f <(istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml) -n bookinfo
+  kubectl create ns bookinfo
+  kubectl apply -f <(istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml) -n bookinfo
   ```
-7. Verify that the custom certificates are installed correctly
-   1. Dump the running pods in the `bookinfo` namespace
-    ```shell
-    $ kubectl get pods -n bookinfo
-    ```
-   2. Get the certificate chain and CA root certificate used by the Istio proxies for mTLS.
-    ```shell
-    $ istioctl pc secret <pod-name> -n bookinfo -o json > proxy_secret
-    ```
-8. Open the bookinfo application to outside traffic
+6. Open bookinfo gateway to open traffic to outside
 ```shell
-$ kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml -n bookinfo
+kubectl apply -f <(istioctl kube-inject -f samples/bookinfo/networking/bookinfo-gateway.yaml) -n bookinfo
 ```
-9. Verify that the pods are communicating correctly
-   1. In another terminal window, start a Minikube tunnel that sends traffic to the Istio Ingress gateway.
+7. In another terminal window, start a Minikube tunnel that sends traffic to the Istio Ingress gateway.
 ```shell
-$ minikube tunnel
+minikube tunnel
 ```
-2. Set the ingress host, ports, and gateway
+8. Set the ingress host, ports, and gateway
 ```shell
-$ export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-$ export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
-$ export SECURE_INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
-$ export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
-$ echo "http://$GATEWAY_URL/productpage"
+export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+export SECURE_INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
+export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+echo "http://$GATEWAY_URL/productpage"
 ```
-   3. Navigate to the link outputted by the last command and confirm that the Bookinfo product page is displayed.
+9. Navigate to the link outputted by the last command and confirm that the Bookinfo product page is displayed.

@@ -25,6 +25,11 @@ ejbca:
   defaultCertificateAuthorityName: ManagementCA
   # Option to use the EJBCA EST interface for certificate enrollment
   useEST: false
+  # Optional default EST alias that is used if useEST is true
+  defaultESTAlias: alias
+  # Option to configure certificate chain depth. 
+  # 0 => full chain; 1 => leaf only; 2 => issuer; 3 => issuer's issuer; etc.
+  chainDepth: 0
   
   # Secret and configmap names
   credsSecretName: ejbca-credentials
