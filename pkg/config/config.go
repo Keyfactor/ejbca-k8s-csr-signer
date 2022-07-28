@@ -14,7 +14,7 @@ type ServerConfig struct {
 	DefaultCertificateAuthorityName string `yaml:"defaultCertificateAuthorityName"`
 	UseEST                          bool   `yaml:"useEST"`
 	DefaultESTAlias                 string `yaml:"defaultESTAlias"`
-	IncludeChain                    bool   `yaml:"includeChain"`
+	ChainDepth                      int    `yaml:"chainDepth"`
 }
 
 var (
