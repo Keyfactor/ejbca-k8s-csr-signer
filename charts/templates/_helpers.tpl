@@ -55,7 +55,11 @@ Create the name of the service account to use
 */}}
 {{- define "ejbca-csr-signer.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
+{{- if .Values.ejbca.vault.enabled}}
+{{- .Values.ejbca.vault.roleName }}
+{{- else }}
 {{- default (include "ejbca-csr-signer.fullname" .) .Values.serviceAccount.name }}
+{{- end }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

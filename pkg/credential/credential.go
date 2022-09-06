@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"github.com/Keyfactor/ejbca-k8s-csr-signer/pkg/logger"
 	"gopkg.in/yaml.v3"
+	"io/fs"
 	"io/ioutil"
+	"log"
 	"os"
+	"strings"
 )
 
 var (
@@ -28,17 +31,29 @@ type EJBCACredential struct {
 func LoadCredential() (*EJBCACredential, error) {
 	creds := &EJBCACredential{}
 
-	file := "./credentials/credentials.yaml"
-	credLog.Infof("Getting credentials from %s", file)
+	var fileList []fs.FileInfo
 
-	buf, err := ioutil.ReadFile(file)
+	credPath := os.Getenv("CREDENTIALS_FILE_DIR")
+
+	fileList, err := ioutil.ReadDir(credPath)
 	if err != nil {
-		credLog.Errorln("Ensure that a secret was created called ejbca-credentials")
-		return nil, err
+		log.Fatal(err)
 	}
 
-	if len(buf) <= 0 {
-		return nil, fmt.Errorf("%s is empty. ensure that a secret was created called ejbca-credentials", file)
+	var buf []byte
+	for _, file := range fileList {
+		if strings.Contains(file.Name(), "yaml") && !file.IsDir() {
+			credLog.Infof("Getting credentials from %s", file.Name())
+			buf, err = ioutil.ReadFile(credPath + file.Name())
+			if err != nil {
+				credLog.Errorln("Ensure that credentials were properly injected into container:" + err.Error())
+				return nil, err
+			}
+			if len(buf) <= 0 {
+				return nil, fmt.Errorf("%s is empty. ensure that a secret was created called ejbca-credentials", file.Name())
+			}
+			break
+		}
 	}
 
 	err = yaml.Unmarshal(buf, &creds)
@@ -46,34 +61,42 @@ func LoadCredential() (*EJBCACredential, error) {
 		return nil, err
 	}
 
+	credLog.Infoln("Successfully retrieved credentials.")
+
 	// Directories are configured in deployment.yaml and exported
 	// as environment variables. Build each path, but only if exported.
-	// If these variables are not exported, client is likely using EST, or the
-	// EJBCA server certificate was signed by a trusted CA.
-	if client := os.Getenv("CLIENT_CERT_DIR"); client != "" {
-		// Client certificate stored using tls secret; Kubernetes stores these secrets
-		// as tls.crt and tls.key.
-		certPath := client + "/tls.crt"
-		keyPath := client + "/tls.key"
+	// If these variables are not exported, client is configured to use EST.
+	if clientCertDir := os.Getenv("CLIENT_CERT_DIR"); clientCertDir != "" {
+		credLog.Infof("Looking in %s for client certificates", clientCertDir)
 
-		buf, err = ioutil.ReadFile(certPath)
-		if err == nil {
-			credLog.Infof("%s exists and contains %d bytes", certPath, len(buf))
-			creds.ClientCertPath = certPath
-		} else {
-			credLog.Warnln(err)
+		fileList, err = ioutil.ReadDir(clientCertDir)
+		if err != nil {
+			log.Fatal(err)
 		}
 
-		buf, err = ioutil.ReadFile(keyPath)
-		if err == nil {
-			credLog.Tracef("%s exists and contains %d bytes", keyPath, len(buf))
-			creds.ClientKeyPath = keyPath
-		} else {
-			credLog.Warnln(err)
+		var newCertBuf []byte
+
+		for _, file := range fileList {
+			if !file.IsDir() {
+				buf, err = ioutil.ReadFile(clientCertDir + file.Name())
+				if err == nil {
+					credLog.Infof("%s exists and contains %d bytes", file.Name(), len(buf))
+					newCertBuf = append(newCertBuf, buf...)
+				} else {
+					credLog.Warnln(err)
+				}
+			}
 		}
+
+		err = ioutil.WriteFile("certkey.pem", newCertBuf, 6440)
+		if err != nil {
+			return nil, err
+		}
+
+		creds.ClientCertPath = "certkey.pem"
+
+		credLog.Infoln("Successfully retrieved client certificate")
 	}
-
-	credLog.Infoln("Successfully retrieved credentials.")
 
 	return creds, nil
 }
