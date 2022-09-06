@@ -26,9 +26,9 @@ Desktop is also compatible with many operating systems.
     ```shell
     kubectl -n ejbca create secret generic ejbca-credentials --from-file ./credentials/credentials.yaml
     ```
-   
-| :memo:        | This will create a secret called `ejbca-credentials`. If a different secret name is used, the `values.yaml` file used by the Helm chart must be updated to reflect this change. |
-|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+
+| :memo:  | Note that this will create a secret called `ejbca-credentials`. If a different secret name is used, use `--set ejbca.credsSecretName=<secret name>` to reflect this change.   |
+|---------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 4. If the EJBCA Enterprise server certificate was signed by an untrusted CA, the [EJBCA Go Client](https://github.com/Keyfactor/ejbca-go-client)
    will not recognize the required APIs as trusted sources. Create a K8s `configmap`
@@ -36,16 +36,20 @@ Desktop is also compatible with many operating systems.
     ```shell
     kubectl -n ejbca create configmap ejbca-ca-cert --from-file certs/ejbcaCA.pem
     ```
-| :exclamation:  | If a different configmap name was used, ensure that the `values.yaml` file used by the Helm chart must be updated to reflect this change. |
-|----------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| :exclamation:  | If a different configmap name was used, use `--set ejbca.caCertConfigmapName=<configmap name>` to reflect this change. |
+|----------------|------------------------------------------------------------------------------------------------------------------------|
 
 5. If using client certificate authentication (IE not using EST), create a tls K8s secret. K8s requires that
    the certificate and private key are in separate files.
     ```shell
     kubectl -n ejbca create secret tls ejbca-client-cert --cert=certs/client.pem --key=certs/client.key
     ```
-| :exclamation: | If a different secret name is used, the `values.yaml` file used by the Helm chart must be updated to reflect this change. |
-|---------------|---------------------------------------------------------------------------------------------------------------------------|
+
+| :memo:        | Note that this will create a secret called `ejbca-client-cert`. If a different secret name is used, use `--set ejbca.clientCertSecretName=<secret name>` to reflect this change. |
+|---------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+
+| :memo: | Optionally, the client certificate can be injected using Vault. [See vault guide](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/docs/vault.md). |
+|--------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 
 ### Building from Sources
@@ -55,14 +59,17 @@ docker build -t <docker_username>/ejbca-k8s-proxy:1.0.0 .
 docker login
 docker push <docker_username>/ejbca-k8s-proxy:1.0.0
 ```
-Update `values.yaml` with the updated repository name.
+Update `values.yaml` with the updated repository name and version.
 
 ### Deploy
 Use Helm to deploy the application.
 ```shell
-helm package charts
-helm install -n ejbca ejbca-k8s -f charts/values.yaml ./ejbca-csr-signer-0.1.0.tgz
+helm upgrade --install ejbca-csr-signer ejbca-csr-signer \
+  --repo https://github.com/Keyfactor/ejbca-k8s-csr-signer \
+  --namespace ejbca --create-namespace
 ```
+This command deploys `ejbca-csr-signer` on the Kubernetes cluster in the default configuration. To customize the installation,
+see [helm install](https://helm.sh/docs/helm/helm_install/) for command documentation.
 
 ### Verify deployment
 Get the POD name by running the following command:
@@ -91,7 +98,7 @@ kubectl -n ejbca logs <POD name>
 ### Tips
 1. Run the following command to isolate the pod name.
     ```shell
-    shell kubectl get pods --template '{{range .items}}{{.metadata.name}}{{end}}' -n ejbca
+    kubectl get pods --template '{{range .items}}{{.metadata.name}}{{end}}' -n ejbca
     ```
 
 2. [Here](https://github.com/m8rmclaren/go-csr-gen) is a convenient CSR generator and formatter.

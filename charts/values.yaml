@@ -15,17 +15,17 @@ ejbca:
     tag: 0.2.92
   useEST: false
   healthcheckPort: 5354
-  defaultESTAlias: hayden
-  defaultCertificateProfileName: istioAuth-3d
-  defaultEndEntityProfileName: haydenEndEntity
-  defaultCertificateAuthorityName: IT-Sub-CA
+  defaultESTAlias: ""
+  defaultCertificateProfileName: ""
+  defaultEndEntityProfileName: ""
+  defaultCertificateAuthorityName: ""
   credsSecretName: ejbca-credentials
   clientCertSecretName: ejbca-client-cert
   # ejbca-ca-cert
   caCertConfigmapName: ""
   chainDepth: 4
   vault:
-    enabled: true
+    enabled: false
     roleName: ejbca-cred
     vaultSecretPath: secret/data/ejbca
 

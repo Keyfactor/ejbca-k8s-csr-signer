@@ -2,10 +2,10 @@ apiVersion: certificates.k8s.io/v1
 kind: CertificateSigningRequest
 metadata:
   name: ejbcaCsrTest
-  #annotations:
-   # certificateProfileName: Authentication-2048-3y
-    #endEntityProfileName: AdminInternal
-   # certificateAuthorityName: ManagementCA
+  annotations:
+    certificateProfileName: istioAuth-3d
+    endEntityProfileName: haydenEndEntity
+    certificateAuthorityName: IT-Sub-CA
 
     #estAlias: hayden
 spec:
