@@ -1,4 +1,4 @@
-# Configure Vault with K8s to retrieve client certificate in a more secure manner
+# Configure Vault to inject client certificate into EJBCA CSR Signer POD
 
 ## Requirements
 * EJBCA
@@ -11,11 +11,11 @@
 	* [Helm](https://helm.sh/docs/intro/install/) (v3.1 +)
 
 ## Overview and Rationale
-By default, `ejbca-k8s-csr-signer` uses a K8s tls secret to store and inject a client certificate for authentication to EJBCA.
+By default, `ejbca-k8s-csr-signer` uses a tls secret to store and inject a client certificate for authentication to EJBCA.
 This poses a security risk because secret objects can be retrieved and displayed in plaintext. HashiCorp Vault offers a
 K8s native solution to security concerns of this nature using the Vault Kubernetes Sidecar Injector. This solution enables
-`ejbca-k8s-csr-signer` to remain unaware of Vault by first running the `vault-agent-init` container. Access to secrets
-in Vault by K8s are configured via K8s service accounts and namespace scope.
+`ejbca-k8s-csr-signer` to remain unaware of Vault by first running the `vault-agent-init` container. K8s access to Vault secrets is controlled 
+via K8s service accounts and namespace scope.
 
 ## Configuration
 

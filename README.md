@@ -1,3 +1,10 @@
+## Community supported
+We welcome contributions.
+
+EJBCA Certificate Signing Request Proxy for K8s is open source and community supported, meaning that there is **no SLA** applicable for these tools.
+
+To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, see the [contribution guidelines](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/CONTRIBUTING.md) and use the **[Pull requests](../../pulls)** tab.
+
 <a href="https://kubernetes.io">
     <img src=".github/K8s.png" alt="Terraform logo" title="K8s" align="left" height="50" />
 </a>
@@ -22,10 +29,3 @@ The EJBCA Certificate Signing Request Proxy for K8s forwards certificate signing
   * Or [Kubernetes with Docker Desktop](https://docs.docker.com/desktop/kubernetes/)
 * Helm (to deploy Kubernetes)
   * [Helm](https://helm.sh/docs/intro/install/) (v3.1 +)
-
-## Community supported
-We welcome contributions.
-
-EJBCA Certificate Signing Request Proxy for K8s is open source and community supported, meaning that there is **no SLA** applicable for these tools.
-
-To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, see the [contribution guidelines](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/CONTRIBUTING.md) and use the **[Pull requests](../../pulls)** tab.

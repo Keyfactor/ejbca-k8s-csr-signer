@@ -24,6 +24,8 @@ ejbca:
   # ejbca-ca-cert
   caCertConfigmapName: ""
   chainDepth: 4
+  signerNames:
+    - "keyfactor.com/*"
   vault:
     enabled: false
     roleName: ejbca-cred

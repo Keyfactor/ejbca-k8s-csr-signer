@@ -31,11 +31,12 @@ See [helm install](https://helm.sh/docs/helm/helm_install/) for command document
 | ejbca.clientCertSecretName                 | string | `ejbca-client-cert`            | Secret containing client certificate key pair used for authentication to EJBCA if `ejbca.useEST` is false. It's recommended that `ejbca.vault` is configured to get this credential from HashiCorp Vault, as K8s secret objects have security limitations.                                                 |
 | ejbca.caCertConfigmapName                  | string | `""`                           | Name of K8s ConfigMap containing PEM encoded root CA certificate if the EJBCA host certificate was signed by an untrusted host.                                                                                                                                                                            |
 | ejbca.chainDepth                           | int    | `0`                            | Integer that configures the certificate chain depth included with the update CSR object. 0 => full chain; 1 => leaf only; 2 => issuer; 3 => issuer's issuer; etc.                                                                                                                                          |
+| ejbca.signernames                          | list   | `{keyfactor.com*/}`            | List of signer names that the CSR signer is authorized to sign certificates for.                                                                                                                                                                                                                           |
 | ejbca.vault.enabled                        | bool   | `false`                        | Boolean that configures chart to enable Vault sidecar injector to inject client certificate stored in HashiCorp Vault. Only valid if `ejbca.useEST` is false.                                                                                                                                              |
 | ejbca.vault.roleName                       | string | `"ejbca-cred"`                 | String indicating the name of the role and policy in Vault granting access to the secret containing client certificate. Note that if `serviceAccount.create=false`, a service account must be created with the same name as `ejbca.vault.roleName`, and `serviceAccount.name` must be updated accordingly. |
 | ejbca.vault.vaultSecretPath                | string | `secret/data/ejbca`            | String containing the path to the vault secret.                                                                                                                                                                                                                                                            |
 | serviceAccount.create                      | bool   | `true`                         | Boolean that configures helm to create service account. If this is false, `serviceAccount.name` must be updated to configure a service account for the deployment object.                                                                                                                                  |
-| serviceAccount.annotations                 | list   | `[]`                           | List of annotations to attach to serviceAccount definition                                                                                                                                                                                                                                                 |
+| serviceAccount.annotations                 | list   | `{}`                           | List of annotations to attach to serviceAccount definition                                                                                                                                                                                                                                                 |
 | serviceAccount.name                        | string | `"ejbca-k8s"`                  | Service account name used if `ejbca.vault.enabled=false`                                                                                                                                                                                                                                                   |
 | podSecurityContext                         | object | `{}`                           |                                                                                                                                                                                                                                                                                                            |
 | securityContext                            | object | `{}`                           |                                                                                                                                                                                                                                                                                                            |
@@ -45,23 +46,43 @@ See [helm install](https://helm.sh/docs/helm/helm_install/) for command document
 | autoscaling.maxReplicas                    | int    | `100`                          |                                                                                                                                                                                                                                                                                                            |
 | autoscaling.targetCPUUtilizationPercentage | int    | `80`                           |                                                                                                                                                                                                                                                                                                            |
 | nodeSelector                               | object | `{}`                           |                                                                                                                                                                                                                                                                                                            |
-| tolerations                                | list   | `[]`                           |                                                                                                                                                                                                                                                                                                            |
+| tolerations                                | list   | `{}`                           |                                                                                                                                                                                                                                                                                                            |
 | affinity                                   | object | `{}`                           |                                                                                                                                                                                                                                                                                                            |
 
+### Custom signer names
+When `CertificateSigningRequest` objects are created, the `spec.signerName` field tells K8s which signer should sign the CSR after it gets approved.
+By default, `ejbca-k8s-signer` is configured to sign CSRs with signerName `"keyfactor.com/*"`. This can be customized by setting the `ejbca.signerNames` value. This feature allows for multiple signers with different behavior to exist in the same cluster.
+For example, an application could require certificates enrolled by a specific CA and a custom certificate/end entity profile. The following installation can be used to
+fulfill this requirement.
+```shell
+helm upgrade --install ejbca-csr-signer ejbca-csr-signer \
+  --repo https://github.com/Keyfactor/ejbca-k8s-csr-signer \
+  --namespace ejbca \
+  --set "ejbca.useEST=false" \
+  --set "ejbca.clientCertSecretName=ejbca-client-cert" \
+  --set "ejbca.signerNames={example.com/feature}" \
+  --set "ejbca.defaultCertificateProfileName=featureCertificateProfileName" \
+  --set "ejbca.defaultEndEntityProfileName=featureEEProfile" \
+  --set "ejbca.defaultCertificateAuthorityName=Feature-Sub-CA"
+```
+Now, the application can be configured to use `example.com/feature` as its `spec.signerName`, and certificates will be enrolled
+off the `Feature-Sub-CA` certificate authority using the `featureCertificateProfileName` certificate profile and `featureEEProfile` end entity profile.
+Note that these fields can also be customized using annotations, detailed in the [Using the CSR Proxy](#Using the CSR Proxy) section.
 
 ## Configuring Credentials
 The EJBCA K8s proxy supports two methods of authentication. The first uses a client certificate
 to authenticate with the EJBCA REST interface. The second uses HTTP Basic authentication
-to authenticate with the EJBCA EST interface. EST is disabled by default, but can be enabled by setting
-`useEST` to `true` in the `values.yaml` file.
+to authenticate with the EJBCA EST interface. EST is disabled by default, but can be enabled using
+`--set ejbca.useEST=true`.
 
-### Creating K8s CA Certificate ConfigMap
+### Untrusted root CA certificate
 If the server TLS certificate used by EJBCA was signed by an untrusted CA, the CA certificate
 must be registered with the TLS transport as a trusted source to allow a TLS handshake.
 Obtain this certificate and create a K8s secret as follows:
 ```shell
 kubectl -n ejbca create configmap ejbca-ca-cert --from-file certs/ejbcaCA.pem
 ```
+Then, use `-- set ejbca.caCertConfigmapName=ejbca-ca-cert`. This value is blank by default.
 Helm mounts this certificate as a volume to `/etc/ssl/certs`. The GoLang HTTP library loads certificates from this 
 directory as per the [x509 library](https://go.dev/src/crypto/x509/root_unix.go).
 
@@ -83,8 +104,11 @@ kubectl create secret tls ejbca-client-cert \
 | :memo:        | Note that this will create a secret called `ejbca-client-cert`. If a different secret name is used, use `--set ejbca.clientCertSecretName=<secret name>` to reflect this change. |
 |---------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
+| :memo: | For non-testing environments, it's recommended that the client certificate come from a more secure source. [See vault guide for more](vault.md). |
+|--------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+
 ### Creating K8s Credentials Secret
-A [sample credentials](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/credentials/sample.yaml) file has been 
+A [sample credentials](../credentials/sample.yaml) file has been 
 provided for easier configuration of the K8s proxy. Populate this file with appropriate configuration.
 ```yaml
 # Hostname to EJBCA server
@@ -108,6 +132,15 @@ kubectl create secret generic ejbca-credentials --from-file ./credentials/creden
 | :memo:  | Note that this will create a secret called `ejbca-credentials`. If a different secret name is used, use `--set ejbca.credsSecretName=<secret name>` to reflect this change.   |
 |---------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
+### Building from Sources
+This is optional. Build and upload a Docker container containing the Go application.
+```shell
+docker build -t <docker_username>/ejbca-k8s-proxy:1.0.0 .
+docker login
+docker push <docker_username>/ejbca-k8s-proxy:1.0.0
+```
+Update `values.yaml` with the updated repository name and version.
+
 ## Using the CSR Proxy
 The EJBCA K8s CSR Proxy interfaces with the Kubernetes `certificates.k8s.io/v1` API.
 To create a CSR, create a `CertificateSigningRequest` object. A template is shown below:
@@ -124,6 +157,8 @@ metadata:
     endEntityProfileName: b
     # Optional EJBCA CA name that will sign the certificate
     certificateAuthorityName: c
+    # Optional EST alias if ejbca.useEST=true
+    estAlias: d
 spec:
   # Base64 encoded PKCS#10 CSR
   request: ==

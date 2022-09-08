@@ -21,10 +21,12 @@ rules:
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
     verbs: ["list", "update", "create", "get", "delete", "watch"]
+
   - apiGroups: ["certificates.k8s.io"]
     resources:
       - "signers"
+    {{- with .Values.ejbca.signerNames }}
     resourceNames:
-      - "keyfactor.com/*"
-      - "example.com/*"
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
     verbs: ["approve", "sign"]
