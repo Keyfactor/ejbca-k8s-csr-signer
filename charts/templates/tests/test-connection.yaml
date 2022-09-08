@@ -11,5 +11,5 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "ejbca-csr-signer.fullname" . }}:{{ .Values.service.port }}']
+      args: ['{{ include "ejbca-csr-signer.fullname" . }}:{{ .Values.ejbca.port }}']
   restartPolicy: Never

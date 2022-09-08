@@ -1,6 +1,6 @@
-VERSION=0.2.82
+VERSION=0.2.92
 
-CHART_NAME = ejbca-csr-signer-0.1.0.tgz
+CHART_NAME = ejbca-csr-signer-1.0.0.tgz
 HELM_NAMESPACE=ejbca
 POD_NAME=ejbca-k8s
 DOCKER_USERNAME=m8rmclarenkf
@@ -47,7 +47,7 @@ docker:
 
 helm: clean
 	helm package charts
-	helm install -n $(HELM_NAMESPACE) $(POD_NAME) -f charts/values.yaml ./$(CHART_NAME) --set image.tag=$(VERSION)
+	helm install -n $(HELM_NAMESPACE) $(POD_NAME) -f charts/values.yaml ./$(CHART_NAME) --set ejbca.image.tag=$(VERSION)
 
 apply:
 	kubectl -n $(HELM_NAMESPACE) apply -f $(APPLY_CONFIG_PATH)

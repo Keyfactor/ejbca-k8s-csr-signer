@@ -1,8 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Values.ejbca.configMapName }}
+  name: ejbca-config
 data:
-  config.yaml: |
-  {{- toYaml .Values.ejbca | nindent 4}}
-    healthcheckPort: {{ .Values.service.healthcheckPort}}
+  config.yaml: |+
+    useEST: {{ .Values.ejbca.useEST }}
+    defaultESTAlias: {{ .Values.ejbca.useEST }}
+    defaultCertificateProfileName: {{ .Values.ejbca.defaultCertificateProfileName }}
+    defaultEndEntityProfileName: {{ .Values.ejbca.defaultEndEntityProfileName }}
+    defaultCertificateAuthorityName: {{ .Values.ejbca.defaultCertificateAuthorityName }}
+    healthcheckPort: {{ .Values.ejbca.healthcheckPort }}
+    chainDepth: {{ .Values.ejbca.chainDepth}}

@@ -368,3 +368,5 @@ FodyWeavers.xsd
 *.crt
 *.key
 credentials.yaml
+
+Makefile
