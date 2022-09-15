@@ -3,6 +3,16 @@ entries:
   ejbca-csr-signer:
   - apiVersion: v2
     appVersion: 1.16.0
+    created: "2022-09-15T17:25:20.952732076Z"
+    description: A Helm chart for the EJBCA Kubernetes CSR API Signer
+    digest: 161da5d25197d18abd0eebd221535e6dc13b377f36723f11e4932ad6c4ceea83
+    name: ejbca-csr-signer
+    type: application
+    urls:
+    - https://github.com/Keyfactor/ejbca-k8s-csr-signer/releases/download/ejbca-csr-signer-1.0.2/ejbca-csr-signer-1.0.2.tgz
+    version: 1.0.2
+  - apiVersion: v2
+    appVersion: 1.16.0
     created: "2022-09-15T17:18:13.899027732Z"
     description: A Helm chart for the EJBCA Kubernetes CSR API Signer
     digest: cc045ea940bf110881975b8d5e927e650a19b719460af98cb91cea992f1d7378
@@ -21,4 +31,4 @@ entries:
     urls:
     - https://github.com/Keyfactor/ejbca-k8s-csr-signer/releases/download/ejbca-csr-signer-1.0.0/ejbca-csr-signer-1.0.0.tgz
     version: 1.0.0
-generated: "2022-09-15T17:18:13.899040232Z"
+generated: "2022-09-15T17:25:20.952756077Z"
