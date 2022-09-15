@@ -41,7 +41,9 @@ vault secrets enable -path=internal kv
 
 Next, set a secret in Vault using the v1 KV engine. Omitted was the creation of `tls.crt` and `tls.key` files containing the client certificate keypair. 
 Shell history can easily be retrieved, so configuring the KV secret should be done in a methodical manner. Key names in this step are 
-unimportant, and the client certificate and private key may be configured in the same key-value tag.
+unimportant, and the client certificate and private key may be configured in the same key-value tag. The client certificate must be a PEM encoded certificate as per
+[Section 5.1 of RFC7468](https://datatracker.ietf.org/doc/html/rfc7468#section-5.1)
+and the private key be a PEM encoded matching PKCS#8 private key as per [Section 11 of RFC7468](https://datatracker.ietf.org/doc/html/rfc7468#section-11).
 ```shell
 vault kv put secret/ejbca cert=@tls.crt key=@tls.key
 ```

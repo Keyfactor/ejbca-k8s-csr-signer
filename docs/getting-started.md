@@ -42,7 +42,9 @@ Desktop is also compatible with many operating systems.
 |----------------|------------------------------------------------------------------------------------------------------------------------|
 
 5. If using client certificate authentication (IE not using EST), create a tls K8s secret. K8s requires that
-   the certificate and private key are in separate files.
+   the certificate and private key are in separate files. The client certificate must be a PEM encoded certificate as per 
+   [Section 5.1 of RFC7468](https://datatracker.ietf.org/doc/html/rfc7468#section-5.1)
+   and the private key be a PEM encoded matching PKCS#8 private key as per [Section 11 of RFC7468](https://datatracker.ietf.org/doc/html/rfc7468#section-11).
     ```shell
     kubectl -n ejbca create secret tls ejbca-client-cert --cert=certs/client.pem --key=certs/client.key
     ```

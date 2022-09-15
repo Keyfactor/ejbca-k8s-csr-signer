@@ -93,7 +93,7 @@ directory as per the [x509 library](https://go.dev/src/crypto/x509/root_unix.go)
 If the traditional REST client is used (IE EST is not being used), a K8s TLS secret must
 be created containing the client certificate/keypair. K8s requires that this certificate
 be a PEM or DER encoded certificate as per [Section 5.1 of RFC7468](https://datatracker.ietf.org/doc/html/rfc7468#section-5.1)
-and the private key be a PEM or DER encoded matching private key as per [Section 11 of RFC7468](https://datatracker.ietf.org/doc/html/rfc7468#section-11).
+and the private key be a PEM or DER encoded matching PKCS#8 private key as per [Section 11 of RFC7468](https://datatracker.ietf.org/doc/html/rfc7468#section-11).
 Once located, create the secret with the following command:
 ```shell
 kubectl create secret tls ejbca-client-cert \
