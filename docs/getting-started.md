@@ -57,7 +57,7 @@ Desktop is also compatible with many operating systems.
 Use Helm to deploy the application.
 ```shell
 helm upgrade --install ejbca-csr-signer ejbca-csr-signer \
-  --repo https://github.com/Keyfactor/ejbca-k8s-csr-signer \
+  --repo https://raw.githubusercontent.com/Keyfactor/ejbca-k8s-csr-signer/gh-pages \
   --namespace ejbca --create-namespace
 ```
 This command deploys `ejbca-csr-signer` on the Kubernetes cluster in the default configuration. To customize the installation,

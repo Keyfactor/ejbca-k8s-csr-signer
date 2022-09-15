@@ -1,4 +1,4 @@
-VERSION=0.2.92
+VERSION=0.2.93
 
 CHART_NAME = ejbca-csr-signer-1.0.0.tgz
 HELM_NAMESPACE=ejbca
@@ -42,8 +42,8 @@ logf:
 
 docker:
 	docker build -t $(DOCKER_USERNAME)/$(DOCKER_CONTAINER_NAME):$(VERSION) .
-	docker login
-	docker push $(DOCKER_USERNAME)/$(DOCKER_CONTAINER_NAME):$(VERSION)
+	echo "docker login"
+	echo "docker push $(DOCKER_USERNAME)/$(DOCKER_CONTAINER_NAME):$(VERSION)"
 
 helm: clean
 	helm package charts

@@ -90,8 +90,8 @@ exit
 Finally, deploy `ejbca-k8s-csr-signer` with vault enabled.
 ```shell
 helm upgrade --install ejbca-csr-signer ejbca-csr-signer \
-  --repo https://github.com/Keyfactor/ejbca-k8s-csr-signer \
-  --namespace ejbca \
+  --repo https://raw.githubusercontent.com/Keyfactor/ejbca-k8s-csr-signer/gh-pages \
+  --namespace ejbca --create-namespace \
   --set ejbca.useEST=false \
   --set ejbca.vault.enabled=true \
   --set ejbca.vault.roleName="ejbca-cred"
