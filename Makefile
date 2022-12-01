@@ -16,9 +16,6 @@ CONFIGMAP_NAME=ejbca-config
 APPLY_CONFIG_PATH=sample/sample.yaml
 APPLY_NAME=ejbcaCsrTest
 
-#echo "docker login"
-#echo "docker push $(DOCKER_USERNAME)/$(DOCKER_CONTAINER_NAME):$(VERSION)"
-
 build: docker helm
 
 cert:
@@ -45,6 +42,8 @@ logf:
 
 docker:
 	docker build -t $(DOCKER_USERNAME)/$(DOCKER_CONTAINER_NAME):$(VERSION) .
+	docker login
+	docker push $(DOCKER_USERNAME)/$(DOCKER_CONTAINER_NAME):$(VERSION)
 
 helm: clean
 	helm package charts
