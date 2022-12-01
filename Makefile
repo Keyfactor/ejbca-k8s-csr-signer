@@ -1,4 +1,4 @@
-VERSION=0.2.93
+VERSION=0.2.94
 
 CHART_NAME = ejbca-csr-signer-1.0.0.tgz
 HELM_NAMESPACE=ejbca
@@ -15,6 +15,9 @@ CA_CONFIGMAP_NAME=ejbca-ca-cert
 CONFIGMAP_NAME=ejbca-config
 APPLY_CONFIG_PATH=sample/sample.yaml
 APPLY_NAME=ejbcaCsrTest
+
+#echo "docker login"
+#echo "docker push $(DOCKER_USERNAME)/$(DOCKER_CONTAINER_NAME):$(VERSION)"
 
 build: docker helm
 
@@ -42,12 +45,10 @@ logf:
 
 docker:
 	docker build -t $(DOCKER_USERNAME)/$(DOCKER_CONTAINER_NAME):$(VERSION) .
-	echo "docker login"
-	echo "docker push $(DOCKER_USERNAME)/$(DOCKER_CONTAINER_NAME):$(VERSION)"
 
 helm: clean
 	helm package charts
-	helm install -n $(HELM_NAMESPACE) $(POD_NAME) -f charts/values.yaml ./$(CHART_NAME) --set ejbca.image.tag=$(VERSION)
+	helm install -n $(HELM_NAMESPACE) $(POD_NAME) -f charts/values.yaml ./$(CHART_NAME) --set ejbca.image.tag=$(VERSION) --debug
 
 apply:
 	kubectl -n $(HELM_NAMESPACE) apply -f $(APPLY_CONFIG_PATH)

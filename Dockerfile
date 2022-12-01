@@ -3,6 +3,9 @@ FROM golang:1.18-buster as build
 WORKDIR /go/src/app
 ADD . /go/src/app
 
+RUN go mod tidy
+RUN go mod vendor
+
 RUN go build -o /go/bin/app
 
 FROM gcr.io/distroless/base-debian10
