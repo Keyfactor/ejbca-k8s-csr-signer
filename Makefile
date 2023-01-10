@@ -1,6 +1,6 @@
-VERSION=0.2.94
+VERSION=0.2.96
 
-CHART_NAME = ejbca-csr-signer-1.0.0.tgz
+CHART_NAME = ejbca-csr-signer-1.0.3.tgz
 HELM_NAMESPACE=ejbca
 POD_NAME=ejbca-k8s
 DOCKER_USERNAME=m8rmclarenkf

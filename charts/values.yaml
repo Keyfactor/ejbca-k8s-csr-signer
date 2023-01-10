@@ -21,8 +21,7 @@ ejbca:
   defaultCertificateAuthorityName: ""
   credsSecretName: ejbca-credentials
   clientCertSecretName: ejbca-client-cert
-  # ejbca-ca-cert
-  caCertConfigmapName: ""
+  caCertConfigmapName: "ejbca-ca-cert"
   chainDepth: 4
   signerNames:
     - "keyfactor.com/*"
