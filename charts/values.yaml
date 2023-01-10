@@ -10,9 +10,9 @@ fullnameOverride: ""
 
 ejbca:
   image:
-    repository: m8rmclarenkf/ejbca-k8s-proxy
+    repository: keyfactor/ejbca-k8s-csr-signer
     pullPolicy: IfNotPresent
-    tag: 0.2.93
+    tag: latest
   useEST: false
   healthcheckPort: 5354
   defaultESTAlias: ""

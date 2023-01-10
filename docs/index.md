@@ -18,9 +18,9 @@ See [helm install](https://helm.sh/docs/helm/helm_install/) for command document
 
 | Key                                        | Type   | Default                        | Description                                                                                                                                                                                                                                                                                                |
 |--------------------------------------------|--------|--------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| ejbca.image.repository                     | string | `m8rmclarenkf/ejbca-k8s-proxy` | Repository containing EJBCA K8s CSR proxy container image                                                                                                                                                                                                                                                  |
+| ejbca.image.repository                     | string | `keyfactor/ejbca-k8s-csr-signer` | Repository containing EJBCA K8s CSR proxy container image                                                                                                                                                                                                                                                  |
 | ejbca.image.pullPolicy                     | string | `IfNotPresent`                 | Image pull policy                                                                                                                                                                                                                                                                                          |
-| ejbca.image.tag                            | string | `0.2.92`                       | CSR signer tag                                                                                                                                                                                                                                                                                             |
+| ejbca.image.tag                            | string | `latest`                       | CSR signer tag                                                                                                                                                                                                                                                                                             |
 | ejbca.useEST                               | bool   | `false`                        | Boolean that configures proxy to use the EST protocol for CSR enrollment. If set to true, credentials must be provided in the credentials secret. [sample credentials file](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/credentials/sample.yaml)                                           |
 | ejbca.healthcheckPort                      | int    | 5354                           | Healthcheck port used by K8s to get the health of application                                                                                                                                                                                                                                              |
 | ejbca.defaultESTAlias                      | string | `""`                           | Default EST alias used for CSR enrollment if `ejbca.useEST` is set to true and estAlias is not configured as an annotation on K8s CSR object.                                                                                                                                                              |
@@ -51,7 +51,7 @@ See [helm install](https://helm.sh/docs/helm/helm_install/) for command document
 
 ### Custom signer names
 When `CertificateSigningRequest` objects are created, the `spec.signerName` field tells K8s which signer should sign the CSR after it gets approved.
-By default, `ejbca-k8s-signer` is configured to sign CSRs with signerName `"keyfactor.com/*"`. This can be customized by setting the `ejbca.signerNames` value. This feature allows for multiple signers with different behavior to exist in the same cluster.
+By default, `ejbca-k8s-csr-signer` is configured to sign CSRs with signerName `"keyfactor.com/*"`. This can be customized by setting the `ejbca.signerNames` value. This feature allows for multiple signers with different behavior to exist in the same cluster.
 For example, an application could require certificates enrolled by a specific CA and a custom certificate/end entity profile. The following installation can be used to
 fulfill this requirement.
 ```shell
@@ -135,9 +135,9 @@ kubectl create secret generic ejbca-credentials --from-file ./credentials/creden
 ### Building from Sources
 This is optional. Build and upload a Docker container containing the Go application.
 ```shell
-docker build -t <docker_username>/ejbca-k8s-proxy:1.0.0 .
+docker build -t <docker_username>/ejbca-k8s-csr-signer:1.0.0 .
 docker login
-docker push <docker_username>/ejbca-k8s-proxy:1.0.0
+docker push <docker_username>/ejbca-k8s-csr-signer:1.0.0
 ```
 Update `values.yaml` with the updated repository name and version.
 
