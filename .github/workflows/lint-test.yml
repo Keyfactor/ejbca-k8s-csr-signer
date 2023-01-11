@@ -39,9 +39,11 @@ jobs:
       - name: Run chart-testing (lint)
         run: ct lint --config ct.yaml --validate-maintainers=false
 
-      - name: Create kind cluster
-        uses: helm/kind-action@v1.2.0
-        if: steps.list-changed.outputs.changed == 'true'
+      - name: Install minikube
+        uses: medyagh/setup-minikube@master
+
+      - name: Verify minikube
+        run: kubectl get pods -A
 
       - name: Configure EJBCA namespace and secrets
         run: |
