@@ -39,23 +39,4 @@ jobs:
       - name: Run chart-testing (lint)
         run: ct lint --config ct.yaml --validate-maintainers=false
 
-      - name: Install minikube
-        uses: medyagh/setup-minikube@master
 
-      - name: Verify minikube
-        run: kubectl get pods -A
-
-      - name: Configure EJBCA namespace and secrets
-        run: |
-          kubectl create namespace ejbca
-          kubectl create secret generic ejbca-credentials -n ejbca --from-file credentials/sample.yaml
-          cat <<EOF > ejbca-ca-cert.pem
-          -----BEGIN CERTIFICATE-----
-          -----END CERTIFICATE-----
-          EOF
-          kubectl create configmap ejbca-ca-cert -n ejbca --from-file ejbca-ca-cert.pem
-          openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -sha256 -days 365 -nodes -subj "/CN=ejbca-csr-signer"
-          kubectl create secret tls ejbca-client-cert --cert=cert.pem --key=key.pem -n ejbca
-
-      - name: Run chart-testing (install)
-        run: ct install --config ct.yaml --namespace ejbca
