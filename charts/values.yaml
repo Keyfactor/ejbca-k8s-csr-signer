@@ -19,8 +19,9 @@ ejbca:
   defaultCertificateProfileName: ""
   defaultEndEntityProfileName: ""
   defaultCertificateAuthorityName: ""
-  credsSecretName: ejbca-credentials
-  clientCertSecretName: ejbca-client-cert
+  credsSecretName: "ejbca-credentials"
+  clientCertSecretName: "ejbca-client-cert"
+  ejbcaSslUsesPubliclyTrustedCa: false
   caCertConfigmapName: "ejbca-ca-cert"
   chainDepth: 4
   signerNames:

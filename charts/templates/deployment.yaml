@@ -56,7 +56,7 @@ spec:
               mountPath: /credentials
             - name: ejbca-config
               mountPath: /config
-            {{- if .Values.ejbca.caCertConfigmapName }}
+            {{- if not .Values.ejbca.ejbcaSslUsesPubliclyTrustedCa }}
             - name: {{ .Values.ejbca.caCertConfigmapName }}
               mountPath: /etc/ssl/certs/
             {{- end }}
@@ -96,7 +96,7 @@ spec:
         - name: ejbca-config
           configMap:
             name: ejbca-config
-        {{- if .Values.ejbca.caCertConfigmapName }}
+        {{- if not .Values.ejbca.ejbcaSslUsesPubliclyTrustedCa }}
         - name: {{ .Values.ejbca.caCertConfigmapName }}
           configMap:
             name: {{ .Values.ejbca.caCertConfigmapName }}

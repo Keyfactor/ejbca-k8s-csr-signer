@@ -3,8 +3,8 @@ VERSION=0.2.96
 CHART_NAME = ejbca-csr-signer-1.0.3.tgz
 HELM_NAMESPACE=ejbca
 POD_NAME=ejbca-k8s
-DOCKER_USERNAME=m8rmclarenkf
-DOCKER_CONTAINER_NAME=ejbca-k8s-proxy
+DOCKER_USERNAME=keyfactor
+DOCKER_CONTAINER_NAME=ejbca-k8s-csr-signer
 KUBE_SECRET_NAME=ejbca-credentials
 BUILD_NUMBER_FILE=build-number.txt
 CLIENT_CERT_PATH=certs/adminHaydenRoszell.pem
@@ -56,3 +56,8 @@ apply:
 
 remove:
 	kubectl -n $(HELM_NAMESPACE) delete csr $(APPLY_NAME)
+
+debug: clean
+	docker build -t signer-controller-debug:latest -f ./DockerfileDelve .
+	helm package charts
+	helm install -n $(HELM_NAMESPACE) $(POD_NAME) -f charts/values.yaml ./$(CHART_NAME) --set ejbca.image.tag=latest --set ejbca.image.repository=signer-controller-debug --debug

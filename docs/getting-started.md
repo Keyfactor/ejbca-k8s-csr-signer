@@ -31,12 +31,14 @@ Desktop is also compatible with many operating systems.
 |---------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 4. If the EJBCA Enterprise server certificate was signed by an untrusted CA, the [EJBCA Go Client](https://github.com/Keyfactor/ejbca-go-client)
-   will not recognize the required APIs as trusted sources. Create a K8s `configmap`
+   will not work properly. Create a K8s `configmap`
    containing the server CA certificate with the below command:
     ```shell
     kubectl -n ejbca create configmap ejbca-ca-cert --from-file certs/ejbcaCA.pem
     ```
-   Helm will not modify trusted root CA configuration if this value is not set.
+   Helm will not modify trusted root CA configuration if this value is not set
+   By default, `ejbca.ejbcaSslUsesPubliclyTrustedCa` is false, so it's expected that this configmap is created. If the 
+   EJBCA server certificate is signed by a trusted CA, use `--set ejbca.ejbcaSslUsesPubliclyTrustedCa=true` to skip this step.
 
 | :exclamation:  | If a different configmap name was used, use `--set ejbca.caCertConfigmapName=<configmap name>` to reflect this change. |
 |----------------|------------------------------------------------------------------------------------------------------------------------|
