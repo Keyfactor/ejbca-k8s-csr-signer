@@ -10,19 +10,19 @@ fullnameOverride: ""
 
 ejbca:
   image:
-    repository: m8rmclarenkf/ejbca-k8s-proxy
+    repository: keyfactor/ejbca-k8s-csr-signer
     pullPolicy: IfNotPresent
-    tag: 0.2.93
+    tag: latest
   useEST: false
   healthcheckPort: 5354
   defaultESTAlias: ""
   defaultCertificateProfileName: ""
   defaultEndEntityProfileName: ""
   defaultCertificateAuthorityName: ""
-  credsSecretName: ejbca-credentials
-  clientCertSecretName: ejbca-client-cert
-  # ejbca-ca-cert
-  caCertConfigmapName: ""
+  credsSecretName: "ejbca-credentials"
+  clientCertSecretName: "ejbca-client-cert"
+  ejbcaSslUsesPubliclyTrustedCa: false
+  caCertConfigmapName: "ejbca-ca-cert"
   chainDepth: 4
   signerNames:
     - "keyfactor.com/*"

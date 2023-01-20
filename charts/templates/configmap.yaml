@@ -5,7 +5,7 @@ metadata:
 data:
   config.yaml: |+
     useEST: {{ .Values.ejbca.useEST }}
-    defaultESTAlias: {{ .Values.ejbca.useEST }}
+    defaultESTAlias: {{ .Values.ejbca.defaultESTAlias }}
     defaultCertificateProfileName: {{ .Values.ejbca.defaultCertificateProfileName }}
     defaultEndEntityProfileName: {{ .Values.ejbca.defaultEndEntityProfileName }}
     defaultCertificateAuthorityName: {{ .Values.ejbca.defaultCertificateAuthorityName }}
