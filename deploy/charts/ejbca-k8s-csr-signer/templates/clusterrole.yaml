@@ -1,15 +1,30 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "ejbca-csr-signer.clusterRole" . }}
+  name: {{ include "ejbca-csr-signer.name" . }}-controller-role
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "ejbca-csr-signer.labels" . | nindent 4 }}
 rules:
-  # For storing TLS CA secret
-  - apiGroups: [""]
-    resources: ["secrets", "namespaces"]
-    verbs: ["create", "get", "watch", "list", "update", "delete"]
+  # The controller needs to be able to read secrets and configmaps to get authentication information
+  # and to configure itself
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+
   # configuration validation webhook controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]

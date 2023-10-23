@@ -8,28 +8,27 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+
 ejbca:
-  image:
-    repository: keyfactor/ejbca-k8s-csr-signer
-    pullPolicy: IfNotPresent
-    tag: latest
-  useEST: false
-  healthcheckPort: 5354
-  defaultESTAlias: ""
-  defaultCertificateProfileName: ""
-  defaultEndEntityProfileName: ""
-  defaultCertificateAuthorityName: ""
-  credsSecretName: "ejbca-credentials"
-  clientCertSecretName: "ejbca-client-cert"
-  ejbcaSslUsesPubliclyTrustedCa: false
-  caCertConfigmapName: "ejbca-ca-cert"
-  chainDepth: 4
+  # Name of the secret containing EJBCA credentials
+  # If this secret is of type kubernetes.io/basic-auth, the signer will use EST for enrollment.
+  # If this secret is of type kubernetes.io/tls, the signer will use the EJBCA REST API with certificate-based authentication..
+  credsSecretName: ""
+
+  # Name of the configmap containing EJBCA configuration.
+  configMapName: ""
+
+  # Name of the configmap containing the EJBCA API CA certificate.
+  # If this name is blank, the signer assumes that the EJBCA API
+  # is using a certificate signed by a trusted CA.
+  caCertConfigmapName: ""
+
   signerNames:
     - "keyfactor.com/*"
-  vault:
-    enabled: false
-    roleName: ejbca-cred
-    vaultSecretPath: secret/data/ejbca
 
 serviceAccount:
   # Specifies whether a service account should be created

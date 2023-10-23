@@ -3,7 +3,7 @@ kind: CertificateSigningRequest
 metadata:
   name: ejbcaCsrTest
   annotations:
-    certificateProfileName: k8sAuth-3d
+    certificateProfileName: istioAuth-3d
     endEntityProfileName: k8sEndEntity
     certificateAuthorityName: IT-Sub-CA
 

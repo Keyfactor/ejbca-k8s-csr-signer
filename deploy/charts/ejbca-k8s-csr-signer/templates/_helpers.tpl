@@ -55,26 +55,8 @@ Create the name of the service account to use
 */}}
 {{- define "ejbca-csr-signer.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- if .Values.ejbca.vault.enabled}}
-{{- .Values.ejbca.vault.roleName }}
-{{- else }}
 {{- default (include "ejbca-csr-signer.fullname" .) .Values.serviceAccount.name }}
-{{- end }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
-{{- end }}
-
-{{/*
-Create the name of the cluster role binding
-*/}}
-{{- define "ejbca-csr-signer.clusterRole" -}}
-{{- .Values.serviceAccount.name }}-cluster-role
-{{- end }}
-
-{{/*
-Create the name of the role binding
-*/}}
-{{- define "ejbca-csr-signer.role" -}}
-{{- .Values.serviceAccount.name }}-role
 {{- end }}

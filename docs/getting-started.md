@@ -5,104 +5,164 @@
     * [EJBCA Enterprise](https://www.primekey.com/products/ejbca-enterprise/) (v7.7 +)
 * Docker (to build the container)
     * [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/)
+* [Kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (v1.11.3 +)
 * Kubernetes (v1.19 +)
-    * [Kubernetes](https://kubernetes.io/docs/tasks/tools/) or [Minikube](https://minikube.sigs.k8s.io/docs/start/)
-    * Or [Kubernetes with Docker Desktop](https://docs.docker.com/desktop/kubernetes/)
-* Helm (to deploy Kubernetes)
+    * [Kubernetes](https://kubernetes.io/docs/tasks/tools/)
+    * [Minikube](https://minikube.sigs.k8s.io/docs/start/)
+    * [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
+    * [Docker Desktop](https://docs.docker.com/desktop/kubernetes/)
+    * [Azure Kubernetes](https://azure.microsoft.com/en-us/products/kubernetes-service)
+    * [Amazon EKS](https://aws.amazon.com/eks/)
+    * [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine)
+* Helm (to deploy to Kubernetes)
     * [Helm](https://helm.sh/docs/intro/install/) (v3.1 +)
 
-For testing environments, it's recommended that [Docker Desktop](https://docs.docker.com/desktop/) is used, since 
-[Kubernetes is easily configured](https://docs.docker.com/desktop/kubernetes/) and requires few extra steps. Docker 
-Desktop is also compatible with many operating systems.
-
 ## Getting Started
-1. Install required software and their dependencies if not already present.
-2. Create a new namespace for the CSR proxy.
+Install required software and their dependencies if not already present. Additionally, verify that at least one Kubernetes node is running by running the following command:
+
+```shell
+kubectl get nodes
+```
+
+### 1. Building the Container Image
+
+The EJBCA K8s CSR Signer is is distributed as source code, and the container must be built manually. The container image can be built using the following command:
+```shell
+make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=keyfactor/ejbca-k8s-csr-signer
+```
+
+###### :pushpin: The container image can be built using Docker Buildx by running `make docker-buildx`. This will build the image for all supported platforms.
+
+### 2. Prepare Credentials and Configuration
+
+1. Create a new namespace for the CSR proxy.
     ```shell
     kubectl create namespace ejbca
     ```
-3. Create a secret containing required credentials for operating with the CSR proxy. A [sample credentials file](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/credentials/sample.yaml)
-   is provided as a reference. By default, EST enrollment is disabled, so EJBCA username and password fields can be left blank in the credentials file. If the private key is encrypted, the key password is required. Place this file in a known location.
+
+2. The EJCBA K8s CSR Signer can enroll certificates using the EJBCA REST API and with EST.
+
+    * If you want to configure the signer to enroll certificates using the EJBCA REST API (IE EST is not configured), authentication to the EJBCA API is handled using client certificates.
+
+        Create a `kubernetes.io/tls` secret containing the client certificate and key. The secret must be created in the same namespace as the CSR proxy.
+        
+        ```shell
+        kubectl -n ejbca create secret tls ejbca-credentials \
+            --cert=<path to client certificate> \
+            --key=<path to client key>
+        ```
+
+    * If you want to configure the signer to enroll certificates using EST, authentication to the EJBCA API is handled using HTTP Basic Authentication.
+
+        Create a `kubernetes.io/basic-auth` secret containing the username and password. The secret must be created in the same namespace as the CSR proxy.
+        
+        ```shell
+        kubectl -n ejbca create secret generic --type=kubernetes.io/basic-auth ejbca-credentials \
+            --from-literal=username=<username> \
+            --from-literal=password=<password>
+        ```
+
+3. The EJCBA K8s CSR Signer uses a K8s ConfigMap to configure its behavior. A [sample](../config.yaml) ConfigMap is provided as a reference.
+
+    The following fields are required:
+    * `ejbcaHostname`: The hostname of the EJBCA instance.
+    * `chainDepth`: The length of the certificate chain included with the leaf certificate. For example, a value of `0` will include the whole chain up to the root CA, and a value of `2` will include the leaf certificate and one intermediate CA certificate.
+
+    * If you want to configure the signer to enroll certificates using the EJBCA REST API, the following fields must be configured:
+        * `defaultEndEntityName`: The name of the end entity to use. The following values are supported:
+            * **`cn`:** Uses the Common Name from the CSR's Distinguished Name.
+            * **`dns`:** Uses the first DNS Name from the CSR's Subject Alternative Names (SANs).
+            * **`uri`:** Uses the first URI from the CSR's Subject Alternative Names (SANs).
+            * **`ip`:** Uses the first IP Address from the CSR's Subject Alternative Names (SANs).
+            * **`certificateName`:** Uses the name of the cert-manager.io/Certificate object.
+            * **Custom Value:** Any other string will be directly used as the End Entity Name.
+        * `defaultCertificateProfileName`: The default name of the certificate profile to use when enrolling certificates.
+        * `defaultEndEntityProfileName`: The default name of the end entity profile to use when enrolling certificates.
+        * `defaultCertificateAuthorityName`: The default name of the certificate authority to use when enrolling certificates.
+
+    * If you want to configure the signer to enroll certificates using EST, the following field must be configured:
+        * `defaultESTAlias`: The default alias of the EST configuration to use when enrolling certificates.
+
+    Create a new ConfigMap resource using the following command:
     ```shell
-    kubectl -n ejbca create secret generic ejbca-credentials --from-file ./credentials/credentials.yaml
+    kubectl -n ejbca apply --from-file=config.yaml
     ```
 
-| :memo:  | Note that this will create a secret called `ejbca-credentials`. If a different secret name is used, use `--set ejbca.credsSecretName=<secret name>` to reflect this change.   |
-|---------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+4. If the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root, the CA certificate must be provided as a Kubernetes configmap.
+   
+   ```shell
+   kubectl -n ejbca-issuer-system create configmap ejbca-ca-cert --from-file=ca.crt
+   ```
 
-4. If the EJBCA Enterprise server certificate was signed by an untrusted CA, the [EJBCA Go Client](https://github.com/Keyfactor/ejbca-go-client)
-   will not work properly. Create a K8s `configmap`
-   containing the server CA certificate with the below command:
-    ```shell
-    kubectl -n ejbca create configmap ejbca-ca-cert --from-file certs/ejbcaCA.pem
-    ```
-   Helm will not modify trusted root CA configuration if this value is not set
-   By default, `ejbca.ejbcaSslUsesPubliclyTrustedCa` is false, so it's expected that this configmap is created. If the 
-   EJBCA server certificate is signed by a trusted CA, use `--set ejbca.ejbcaSslUsesPubliclyTrustedCa=true` to skip this step.
+### 3. Installation from Helm Chart
 
-| :exclamation:  | If a different configmap name was used, use `--set ejbca.caCertConfigmapName=<configmap name>` to reflect this change. |
-|----------------|------------------------------------------------------------------------------------------------------------------------|
+The EJCBA K8s CSR Signer is installed using a Helm chart. The chart is available in the [EJCBA K8s CSR Signer Helm repository](https://keyfactor.github.io/ejbca-k8s-csr-signer/).
 
-5. If using client certificate authentication (IE not using EST), create a tls K8s secret. K8s requires that
-   the certificate and private key are in separate files. The client certificate must be a PEM encoded certificate as per 
-   [Section 5.1 of RFC7468](https://datatracker.ietf.org/doc/html/rfc7468#section-5.1)
-   and the private key be a PEM encoded matching PKCS#8 private key as per [Section 11 of RFC7468](https://datatracker.ietf.org/doc/html/rfc7468#section-11).
-    ```shell
-    kubectl -n ejbca create secret tls ejbca-client-cert --cert=certs/client.pem --key=certs/client.key
+1. Add the Helm repository:
+    
+    ```bash
+    helm repo add ejbca-k8s https://keyfactor.github.io/ejbca-k8s-csr-signer
+    helm repo update
     ```
 
-| :memo: | Note that this will create a secret called `ejbca-client-cert`. If a different secret name is used, use `--set ejbca.clientCertSecretName=<secret name>` to reflect this change. |
-|--------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+2. Then, install the chart:
+    
+    ```bash
+    helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
+        --namespace ejbca \
+        --create-namespace \
+        --set image.repository=<your container registry>/keyfactor/ejbca-k8s-csr-signer \
+        --set image.tag=<tag> \
+        # --set image.pullPolicy=Never # Only required if using a local image \
+        --set image.pullPolicy=Never \
+        --set ejbca.credsSecretName=ejbca-credentials \
+        --set ejbca.configMapName=ejbca-config
+        # --set ejbca.caCertConfigmapName=ejbca-ca-cert # Only required if EJBCA API serves an untrusted certificate \
+    ```
 
-| :memo: | Optionally, the client certificate can be injected using Vault. [See vault guide](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/docs/vault.md). |
-|--------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    a. Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to override the `signerNames` value, run the following command:
 
-### Deploy
-Use Helm to deploy the application.
-```shell
-helm upgrade --install ejbca-csr-signer ejbca-csr-signer \
-  --repo https://raw.githubusercontent.com/Keyfactor/ejbca-k8s-csr-signer/gh-pages \
-  --namespace ejbca --create-namespace
-```
-This command deploys `ejbca-csr-signer` on the Kubernetes cluster in the default configuration. To customize the installation,
-see [helm install](https://helm.sh/docs/helm/helm_install/) and [EJBCA CSR signer documentation](index.md) for command documentation.
+        ```shell
+        helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
+            --namespace ejbca \
+            --create-namespace \
+            --set image.repository=<your container registry>/keyfactor/ejbca-k8s-csr-signer \
+            --set image.tag=<tag> \
+            --set ejbca.signerNames[0]=internalsigner.com
+        ```
 
-### Verify deployment
-Get the POD name by running the following command:
-```shell
-kubectl -n ejbca get pods
-```
-The status should say `Running` or `ContainerCreating`.
+    b. Modifications can also be made by modifying the `values.yaml` file directly. For example, to override the
+    `signerNames` value, modify the `signerNames` value in the `values.yaml` file:
+
+    ```yaml
+    cat <<EOF > override.yaml
+    image:
+        repository: <your container registry>/keyfactor/ejbca-k8s-csr-signer
+        pullPolicy: Never
+        tag: "latest"
+    ejbca:
+        credsSecretName: ejbca-credentials
+        configMapName: ejbca-config
+        caCertConfigmapName: ejbca-ca-cert
+        signerNames:
+            - internalsigner.com
+    EOF
+    ```
+
+    Then, use the `-f` flag to specify the `values.yaml` file:
+    
+    ```yaml
+    helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
+        -f override.yaml
+    ```
  
-### Create a new CertificateSigningRequest resource with the provided sample
-A [sample CSR object file](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/sample/sample.yaml) is provided 
-for getting started. Create a new CSR resource using the following command. Note that the `request` field
-contains a Base64 encoded PKCS#10 PEM encoded certificate.
+### 4. Create a new CertificateSigningRequest resource with the provided sample
+A [sample CSR object file](../sample.yaml) is provided to getting started. Create a new CSR resource using the following command. The `request` field contains a Base64 encoded PKCS#10 PEM encoded certificate.
 ```shell
-kubectl -n ejbca apply -f sample/sample.yaml
-kubectl -n ejbca get csr
+kubectl apply -f sample/sample.yaml
+kubectl get csr
 ```
 To enroll the CSR, it must be approved.
 ```shell
-kubectl -n ejbca certificate approve ejbcaCsrTest
+kubectl certificate approve ejbcaCsrTest
 ```
-View logs by running the following command:
-```shell
-kubectl -n ejbca logs <POD name>
-```
-
-### Tips
-1. Run the following command to isolate the pod name.
-    ```shell
-    kubectl get pods --template '{{range .items}}{{.metadata.name}}{{end}}' -n ejbca
-    ```
-
-2. [Here](https://github.com/m8rmclaren/go-csr-gen) is a convenient CSR generator and formatter.
-
-3. `CertificateSigningRequest` objects can be configured with the following annotations to override default values configured by `values.yaml`
-    ```yaml
-    annotations:
-        certificateProfileName: Authentication-2048-3y
-        endEntityProfileName: AdminInternal
-        certificateAuthorityName: ManagementCA
-    ```

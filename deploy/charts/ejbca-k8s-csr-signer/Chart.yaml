@@ -1,0 +1,14 @@
+apiVersion: v2
+name: ejbca-csr-signer
+description: A Helm chart for the EJBCA Kubernetes CSR API Signer
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+
+maintainers:
+  - name: Hayden Roszell
+    email: hayden.roszell@keyfactor.com
+  - name: Sven Rajala
+    email: sven.rajala@keyfactor.com
+  - name: JD Kilgallin
+    email: jd.kilgallin@keyfactor.com
