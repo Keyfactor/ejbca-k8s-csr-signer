@@ -55,6 +55,5 @@ jobs:
       - run: go mod download
 
       # Run Go tests
-      - env:
-        name: Run go test
+      - name: Run go test
         run: go test -v ./...
