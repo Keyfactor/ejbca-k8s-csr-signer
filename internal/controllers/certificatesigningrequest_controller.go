@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/Keyfactor/ejbca-k8s-csr-signer/internal/signer"
 	"github.com/Keyfactor/ejbca-k8s-csr-signer/pkg/util"
@@ -17,19 +16,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	errGetAuthSecret = errors.New("failed to get Secret containing Issuer credentials")
-	errGetCaSecret   = errors.New("caSecretName specified a name, but failed to get Secret containing CA certificate")
-)
-
 type CertificateSigningRequestReconciler struct {
 	client.Client
-	Scheme                                  *runtime.Scheme
-	SignerBuilder                           signer.Builder
-	ClusterResourceNamespace                string
-	Clock                                   clock.Clock
-	CheckApprovedCondition                  bool
-	CredsSecret, ConfigMap, CaCertConfigmap types.NamespacedName
+	Scheme                                           *runtime.Scheme
+	SignerBuilder                                    signer.Builder
+	ClusterResourceNamespace                         string
+	Clock                                            clock.Clock
+	CheckApprovedCondition, CheckServiceAccountScope bool
+	CredsSecret, ConfigMap, CaCertConfigmap          types.NamespacedName
 }
 
 func (c *CertificateSigningRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
@@ -47,15 +41,17 @@ func (c *CertificateSigningRequestReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, nil
 	}
 
-	// Verify that the signerName is available within the scope of the controller's service account
-	scopeStatus, err := c.IsIssuerInScope(ctx, certificateSigningRequest.Spec.SignerName)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	if c.CheckServiceAccountScope {
+		// Verify that the signerName is available within the scope of the controller's service account
+		scopeStatus, err := c.IsIssuerInScope(ctx, certificateSigningRequest.Spec.SignerName)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 
-	if !scopeStatus.Allowed {
-		reconcileLog.Info(fmt.Sprintf("SignerName %q is not in scope of the controller's service account. Ignoring.", certificateSigningRequest.Spec.SignerName))
-		return ctrl.Result{}, nil
+		if !scopeStatus.Allowed {
+			reconcileLog.Info(fmt.Sprintf("SignerName %q is not in scope of the controller's service account. Ignoring.", certificateSigningRequest.Spec.SignerName))
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// Ignore CertificateSigningRequests that are not approved yet
@@ -84,14 +80,14 @@ func (c *CertificateSigningRequestReconciler) Reconcile(ctx context.Context, req
 
 	// Get the credentials secret
 	var creds corev1.Secret
-	if err := c.Get(ctx, c.CredsSecret, &creds); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetAuthSecret, c.CredsSecret.Name, err)
+	if err = c.Get(ctx, c.CredsSecret, &creds); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get Secret containing Signer credentials, secret name: %s, reason: %v", c.CredsSecret.Name, err)
 	}
 
 	// Get the signer configuration
 	var config corev1.ConfigMap
-	if err := c.Get(ctx, c.ConfigMap, &config); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetAuthSecret, c.ConfigMap.Name, err)
+	if err = c.Get(ctx, c.ConfigMap, &config); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get ConfigMap containing Signer configuration, configmap name: %s, reason: %v", c.ConfigMap.Name, err)
 	}
 
 	// Get the CA certificate
@@ -100,7 +96,7 @@ func (c *CertificateSigningRequestReconciler) Reconcile(ctx context.Context, req
 		// If the CA secret name is not specified, we will not attempt to retrieve it
 		err = c.Get(ctx, c.CaCertConfigmap, &root)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetCaSecret, c.CaCertConfigmap.Name, err)
+			return ctrl.Result{}, fmt.Errorf("caSecretName was provided, but failed to get ConfigMap containing CA certificate, configmap name: %q, reason: %v", c.CaCertConfigmap, err)
 		}
 	}
 

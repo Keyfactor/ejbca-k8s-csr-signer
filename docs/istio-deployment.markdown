@@ -1,5 +1,7 @@
 # Deployment with Istio
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/Keyfactor/ejbca-k8s-csr-signer)](https://goreportcard.com/report/github.com/Keyfactor/ejbca-k8s-csr-signer) [![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/keyfactor/ejbca-k8s-csr-signer?label=release)](https://github.com/keyfactor/ejbca-k8s-csr-signer/releases) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) [![license](https://img.shields.io/github/license/keyfactor/ejbca-k8s-csr-signer.svg)]()
+
 ## Requirements
 * EJBCA
     * [EJBCA Enterprise](https://www.primekey.com/products/ejbca-enterprise/) (v7.7 +)
@@ -22,7 +24,7 @@ For this tutorial, it's recommended that a distribution of Linux is used as the 
 
 ## 1. Deploy the EJBCA K8s CSR Signer
 
-Follow the steps in the [Getting Started](getting-started.md) guide to build the container image and prepare the credentials and configuration.
+Follow the steps in the [Getting Started](getting-started.markdown) guide to build the container image and prepare the credentials and configuration.
 
 ## 2. Prepare Istio
 
@@ -62,7 +64,9 @@ Istio must not already be installed in your cluster, since modification of the I
     export EJBCA_ROOT_CERTS=$(cat <path to PEM encoded CA cert chain> | sed 's/^/          /')
     ```
 
-3. Deploy Istio with the `keyfactor.com/*` signers.
+3. Deploy Istio with the `keyfactor.com/bookinfo` and `keyfactor.com/istio-system` signers.
+
+    The signer names can be modified according do your cluster's needs, but you _must_ ensure that the signer names match the signer names configured in the `ejbca.signerNames` in the EJBCA K8s CSR Signer Helm chart. By default, no signer names are configured in the EJBCA K8s CSR Signer, all signer names are in scope.
 
     ```yaml
     cat <<EOF > ./ejbca-istio.yaml

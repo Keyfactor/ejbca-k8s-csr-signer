@@ -21,6 +21,12 @@ import (
 	"strconv"
 )
 
+// ejbcaSigner implements both Signer and Builder interfaces
+var _ Builder = &ejbcaSigner{}
+var _ Signer = &ejbcaSigner{}
+
+const annotationPrefix = "ejbca-k8s-csr-signer.keyfactor.com/"
+
 type Builder interface {
 	Reset() Builder
 	WithContext(ctx context.Context) Builder
@@ -50,16 +56,17 @@ type ejbcaSigner struct {
 	chainDepth                      int
 
 	// Computed
-	errs          []error
-	enrollWithEst bool
-	caChain       []*x509.Certificate
+	errs              []error
+	enrollWithEst     bool
+	caChain           []*x509.Certificate
+	preflightComplete bool
 
 	estClient  *ejbcaest.Client
 	restClient *ejbca.APIClient
 }
 
-func NewEjbcaSignerBuilder() (Builder, error) {
-	return &ejbcaSigner{}, nil
+func NewEjbcaSignerBuilder() Builder {
+	return &ejbcaSigner{}
 }
 
 func (s *ejbcaSigner) Reset() Builder {
@@ -79,6 +86,7 @@ func (s *ejbcaSigner) WithCredsSecret(secret corev1.Secret) Builder {
 		// If we have a TLS secret, we will assume that we are not enrolling with EST and will authenticate to
 		// the EJBCA API using a client certificate
 		s.enrollWithEst = false
+		s.logger.Info("Found TLS secret. Using EJBCA REST")
 
 		_, ok := secret.Data["tls.crt"]
 		if !ok {
@@ -89,10 +97,11 @@ func (s *ejbcaSigner) WithCredsSecret(secret corev1.Secret) Builder {
 		if !ok {
 			s.errs = append(s.errs, errors.New("tls.key not found in secret data"))
 		}
-	} else {
+	} else if secret.Type == corev1.SecretTypeBasicAuth {
 		// If we have a non-TLS secret, we will assume that we are enrolling with EST and will authenticate to
 		// the EJBCA API using HTTP Basic Auth
 		s.enrollWithEst = true
+		s.logger.Info("Found BasicAuth secret. Using EJBCA EST")
 
 		_, ok := secret.Data["username"]
 		if !ok {
@@ -103,6 +112,8 @@ func (s *ejbcaSigner) WithCredsSecret(secret corev1.Secret) Builder {
 		if !ok {
 			s.errs = append(s.errs, errors.New("password not found in secret data"))
 		}
+	} else {
+		s.errs = append(s.errs, errors.New("secret type is not TLS or BasicAuth"))
 	}
 
 	s.creds = secret
@@ -176,6 +187,8 @@ func (s *ejbcaSigner) WithCACertConfigMap(config corev1.ConfigMap) Builder {
 		s.caChain = caChain
 	}
 
+	s.logger.Info(fmt.Sprintf("Found %d CA certificates in the CA certificate config map", len(s.caChain)))
+
 	return s
 }
 
@@ -195,6 +208,8 @@ func (s *ejbcaSigner) PreFlight() error {
 		}
 	}
 
+	s.logger.Info("Preflight complete")
+	s.preflightComplete = true
 	return utilerrors.NewAggregate(s.errs)
 }
 
@@ -268,6 +283,8 @@ func (s *ejbcaSigner) newRestClient() (*ejbca.APIClient, error) {
 	// If the CA certificate is provided, add it to the EJBCA configuration
 	ejbcaConfig.SetCaCertificates(s.caChain)
 
+	s.logger.Info("Creating EJBCA REST API client")
+
 	// Create EJBCA API Client
 	client, err := ejbca.NewAPIClient(ejbcaConfig)
 	if err != nil {
@@ -314,6 +331,8 @@ func (s *ejbcaSigner) newEstClient() (*ejbcaest.Client, error) {
 		return nil, err
 	}
 
+	s.logger.Info("Creating EJBCA EST client")
+
 	ejbcaClient, err := ejbcaFactory.NewESTClient(string(username), string(password))
 	if err != nil {
 		s.logger.Error(err, "Failed to create EJBCA EST client")
@@ -324,6 +343,11 @@ func (s *ejbcaSigner) newEstClient() (*ejbcaest.Client, error) {
 }
 
 func (s *ejbcaSigner) Build() Signer {
+	if !s.preflightComplete {
+		s.logger.Error(fmt.Errorf("preflight not complete"), "preflight must be completed before building signer")
+		return nil
+	}
+
 	return s
 }
 
@@ -377,9 +401,9 @@ func (s *ejbcaSigner) getEndEntityName(csr *x509.CertificateRequest) string {
 	}
 
 	// End of defaults; if the endEntityName option is set to anything but cn, dns, or uri, use the option as the end entity name
-	if s.defaultEndEntityName != "" && s.defaultEndEntityName != "cn" && s.defaultEndEntityName != "dns" && s.defaultEndEntityName != "uri" && s.defaultEndEntityName != "certificateName" {
+	if s.defaultEndEntityName != "" && s.defaultEndEntityName != "cn" && s.defaultEndEntityName != "dns" && s.defaultEndEntityName != "uri" {
 		eeName = s.defaultEndEntityName
-		s.logger.Info(fmt.Sprintf("Using the endEntityName option as the EJBCA end entity name: %q", eeName))
+		s.logger.Info(fmt.Sprintf("Using the defaultEndEntityName as the EJBCA end entity name: %q", eeName))
 		return eeName
 	}
 
@@ -389,7 +413,18 @@ func (s *ejbcaSigner) getEndEntityName(csr *x509.CertificateRequest) string {
 	return eeName
 }
 
+func (s *ejbcaSigner) deprecatedAnnotationGetter(annotations map[string]string, annotation string) string {
+	annotationValue, ok := annotations[annotation]
+	if ok {
+		s.logger.Info(fmt.Sprintf("Annotations specified without the %q prefix is deprecated and will be removed in the future. Using %q as %q", annotationPrefix, annotationValue, annotation))
+		return annotationValue
+	}
+
+	return ""
+}
+
 func (s *ejbcaSigner) signWithRest(csr *certificates.CertificateSigningRequest) ([]byte, error) {
+	annotations := csr.GetAnnotations()
 
 	parsedCsr, err := parseCSR(csr.Spec.Request)
 	if err != nil {
@@ -399,7 +434,15 @@ func (s *ejbcaSigner) signWithRest(csr *certificates.CertificateSigningRequest) 
 	// Log the common metadata of the CSR
 	s.logger.Info(fmt.Sprintf("Found CSR wtih DN %q and %d DNS SANs, %d IP SANs, and %d URI SANs", parsedCsr.Subject, len(parsedCsr.DNSNames), len(parsedCsr.IPAddresses), len(parsedCsr.URIs)))
 
-	// If the CSR has a CommonName, use it as the EJBCA end entity name
+	// Override the default end entity name if the annotation is set
+	endEntityName, ok := annotations[annotationPrefix+"endEntityName"]
+	if ok {
+		s.defaultEndEntityName = endEntityName
+	} else if endEntityName = s.deprecatedAnnotationGetter(annotations, "endEntityName"); endEntityName != "" {
+		s.defaultEndEntityName = endEntityName
+	}
+
+	// Determine the EJBCA end entity name
 	ejbcaEeName := s.getEndEntityName(parsedCsr)
 	if ejbcaEeName == "" {
 		return nil, errors.New("failed to determine the EJBCA end entity name")
@@ -419,21 +462,50 @@ func (s *ejbcaSigner) signWithRest(csr *certificates.CertificateSigningRequest) 
 
 	enroll.SetCertificateRequest(string(csr.Spec.Request))
 
-	annotations := csr.GetAnnotations()
-	certificateProfileName, ok := annotations["certificateProfileName"]
-	if ok {
-		s.logger.Info(fmt.Sprintf("Using the %q certificate profile name", certificateProfileName))
+	certificateProfileName, ok := annotations[annotationPrefix+"certificateProfileName"]
+	if ok && certificateProfileName != "" {
+		s.logger.Info(fmt.Sprintf("Using the %q certificate profile name from CSR annotations", certificateProfileName))
+		enroll.SetCertificateProfileName(certificateProfileName)
+	} else if certificateProfileName = s.deprecatedAnnotationGetter(annotations, "certificateProfileName"); certificateProfileName != "" {
+		s.logger.Info(fmt.Sprintf("Using the %q certificate profile name from CSR annotations", certificateProfileName))
 		enroll.SetCertificateProfileName(certificateProfileName)
 	}
-	endEntityProfileName, ok := annotations["endEntityProfileName"]
-	if ok {
-		s.logger.Info(fmt.Sprintf("Using the %q end entity profile name", endEntityProfileName))
+
+	endEntityProfileName, ok := annotations[annotationPrefix+"endEntityProfileName"]
+	if ok && endEntityProfileName != "" {
+		s.logger.Info(fmt.Sprintf("Using the %q end entity profile name from CSR annotations", endEntityProfileName))
+		enroll.SetEndEntityProfileName(endEntityProfileName)
+	} else if endEntityProfileName = s.deprecatedAnnotationGetter(annotations, "endEntityProfileName"); endEntityProfileName != "" {
+		s.logger.Info(fmt.Sprintf("Using the %q end entity profile name from CSR annotations", endEntityProfileName))
 		enroll.SetEndEntityProfileName(endEntityProfileName)
 	}
-	certificateAuthorityName, ok := annotations["certificateAuthorityName"]
-	if ok {
-		s.logger.Info(fmt.Sprintf("Using the %q certificate authority", certificateAuthorityName))
+
+	certificateAuthorityName, ok := annotations[annotationPrefix+"certificateAuthorityName"]
+	if ok && certificateAuthorityName != "" {
+		s.logger.Info(fmt.Sprintf("Using the %q certificate authority from CSR annotations", certificateAuthorityName))
 		enroll.SetCertificateAuthorityName(certificateAuthorityName)
+	} else if certificateAuthorityName = s.deprecatedAnnotationGetter(annotations, "certificateAuthorityName"); certificateAuthorityName != "" {
+		s.logger.Info(fmt.Sprintf("Using the %q certificate authority from CSR annotations", certificateAuthorityName))
+		enroll.SetCertificateAuthorityName(certificateAuthorityName)
+	}
+
+	chainDepthStr, ok := annotations[annotationPrefix+"chainDepth"]
+	if ok {
+		chainDepth, err := strconv.Atoi(chainDepthStr)
+		if err == nil {
+			s.logger.Info(fmt.Sprintf("Using \"%d\" as chain depth from annotation", chainDepth))
+			s.chainDepth = chainDepth
+		}
+	}
+
+	if enroll.GetCertificateProfileName() == "" {
+		return nil, errors.New("certificateProfileName was not found")
+	}
+	if enroll.GetEndEntityProfileName() == "" {
+		return nil, errors.New("endEntityProfileName was not found")
+	}
+	if enroll.GetCertificateAuthorityName() == "" {
+		return nil, errors.New("certificateAuthorityName was not found")
 	}
 
 	s.logger.Info(fmt.Sprintf("Enrolling certificate with EJBCA with certificate profile name %q, end entity profile name %q, and certificate authority name %q", enroll.GetCertificateProfileName(), enroll.GetEndEntityProfileName(), enroll.GetCertificateAuthorityName()))
@@ -554,18 +626,34 @@ func getCertificatesFromEjbcaObject(ejbcaCert ejbca.CertificateRestResponse) ([]
 
 func (s *ejbcaSigner) signWithEst(csr *certificates.CertificateSigningRequest) ([]byte, error) {
 	annotations := csr.GetAnnotations()
-	alias := ""
+	alias := "" // Default is already set in the EST client
+
 	// Get alias from object annotations, if they exist
-	a, ok := annotations["estAlias"]
+	a, ok := annotations[annotationPrefix+"estAlias"]
 	if ok {
 		alias = a
 		s.logger.Info("Using \"%s\" as EST alias from annotation", alias)
+	} else if a = s.deprecatedAnnotationGetter(annotations, "estAlias"); a != "" {
+		alias = a
 	} else {
 		s.logger.Info("No EST alias found in annotations, using default.")
 	}
 
+	a, ok = annotations[annotationPrefix+"chainDepth"]
+	if ok {
+		chainDepth, err := strconv.Atoi(a)
+		if err == nil {
+			s.logger.Info(fmt.Sprintf("Using \"%d\" as chain depth from annotation", chainDepth))
+			s.chainDepth = chainDepth
+		}
+	}
+
 	// Decode PEM encoded PKCS#10 CSR to DER
 	block, _ := pem.Decode(csr.Spec.Request)
+
+	if s.estClient.EST == nil {
+		return nil, errors.New("est client is nil - configuration error likely")
+	}
 
 	// Enroll CSR with simpleenroll
 	leaf, err := s.estClient.EST.SimpleEnroll(alias, base64.StdEncoding.EncodeToString(block.Bytes))
@@ -588,7 +676,6 @@ func (s *ejbcaSigner) signWithEst(csr *certificates.CertificateSigningRequest) (
 	*/
 
 	// Build a list of the leaf and the whole chain
-	s.logger.Info("Appending certificate chain to depth %d", s.chainDepth)
 	var leafAndChain []*x509.Certificate
 	leafAndChain = append(leafAndChain, leaf[0])
 	leafAndChain = append(leafAndChain, chain...)
@@ -602,6 +689,8 @@ func (s *ejbcaSigner) signWithEst(csr *certificates.CertificateSigningRequest) (
 	for i := 0; i < s.chainDepth; i++ {
 		pemChain = append(pemChain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafAndChain[i].Raw})...)
 	}
+
+	s.logger.Info(fmt.Sprintf("Successfully enrolled certificate with EJBCA and built leaf and chain to depth %d", s.chainDepth))
 
 	return pemChain, nil
 }

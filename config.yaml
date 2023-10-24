@@ -11,7 +11,6 @@ data:
   #   * dns: Uses the first DNS Name from the CSR's Subject Alternative Names (SANs).
   #   * uri: Uses the first URI from the CSR's Subject Alternative Names (SANs).
   #   * ip: Uses the first IP Address from the CSR's Subject Alternative Names (SANs).
-  #   * certificateName: Uses the name of the cert-manager.io/Certificate object.
   #   * Custom Value: Any other string will be directly used as the End Entity Name.
   defaultEndEntityName: ""
 

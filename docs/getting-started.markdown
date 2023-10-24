@@ -1,5 +1,7 @@
 # Getting Started with the EJBCA Certificate Signing Request Proxy for K8s
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/Keyfactor/ejbca-k8s-csr-signer)](https://goreportcard.com/report/github.com/Keyfactor/ejbca-k8s-csr-signer) [![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/keyfactor/ejbca-k8s-csr-signer?label=release)](https://github.com/keyfactor/ejbca-k8s-csr-signer/releases) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) [![license](https://img.shields.io/github/license/keyfactor/ejbca-k8s-csr-signer.svg)]()
+
 ## Requirements
 * EJBCA
     * [EJBCA Enterprise](https://www.primekey.com/products/ejbca-enterprise/) (v7.7 +)
@@ -69,13 +71,7 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
     * `chainDepth`: The length of the certificate chain included with the leaf certificate. For example, a value of `0` will include the whole chain up to the root CA, and a value of `2` will include the leaf certificate and one intermediate CA certificate.
 
     * If you want to configure the signer to enroll certificates using the EJBCA REST API, the following fields must be configured:
-        * `defaultEndEntityName`: The name of the end entity to use. The following values are supported:
-            * **`cn`:** Uses the Common Name from the CSR's Distinguished Name.
-            * **`dns`:** Uses the first DNS Name from the CSR's Subject Alternative Names (SANs).
-            * **`uri`:** Uses the first URI from the CSR's Subject Alternative Names (SANs).
-            * **`ip`:** Uses the first IP Address from the CSR's Subject Alternative Names (SANs).
-            * **`certificateName`:** Uses the name of the cert-manager.io/Certificate object.
-            * **Custom Value:** Any other string will be directly used as the End Entity Name.
+        * `defaultEndEntityName`: The name of the end entity to use. More information on how the field is used can be found in the [EJBCA End Entity Name Configuration](endentitynamecustomization.markdown) guide.
         * `defaultCertificateProfileName`: The default name of the certificate profile to use when enrolling certificates.
         * `defaultEndEntityProfileName`: The default name of the end entity profile to use when enrolling certificates.
         * `defaultCertificateAuthorityName`: The default name of the certificate authority to use when enrolling certificates.
@@ -87,6 +83,9 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
     ```shell
     kubectl -n ejbca apply --from-file=config.yaml
     ```
+   
+    All fields in the ConfigMap can be overridden using annotations from the CSR at runtime. See the [Annotation Overrides for the EJBCA K8s CSR Signer](annotations.markdown) guide for more information.
+
 
 4. If the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root, the CA certificate must be provided as a Kubernetes configmap.
    
@@ -120,7 +119,7 @@ The EJCBA K8s CSR Signer is installed using a Helm chart. The chart is available
         # --set ejbca.caCertConfigmapName=ejbca-ca-cert # Only required if EJBCA API serves an untrusted certificate \
     ```
 
-    a. Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to override the `signerNames` value, run the following command:
+    a. Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to add an authorized signer name to the ClusterRole, run the following command:
 
         ```shell
         helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
@@ -145,7 +144,7 @@ The EJCBA K8s CSR Signer is installed using a Helm chart. The chart is available
         configMapName: ejbca-config
         caCertConfigmapName: ejbca-ca-cert
         signerNames:
-            - internalsigner.com
+            - internalsigner.com/cluster
     EOF
     ```
 
@@ -155,9 +154,13 @@ The EJCBA K8s CSR Signer is installed using a Helm chart. The chart is available
     helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
         -f override.yaml
     ```
+
+###### :pushpin: Wildcards are **NOT** supported in the `signerNames` field. If you want to allow all signers, do not specify any signer names.
+
+###### :pushpin: The EJBCA K8s CSR signer uses the `SelfSubjectAccessReview` API to determine if the user has permission to sign the CSR. If the user does not have permission, the signer will ignore the CSR.
  
 ### 4. Create a new CertificateSigningRequest resource with the provided sample
-A [sample CSR object file](../sample.yaml) is provided to getting started. Create a new CSR resource using the following command. The `request` field contains a Base64 encoded PKCS#10 PEM encoded certificate.
+A [sample CSR object file](../sample/sample.yaml) is provided to getting started. Create a new CSR resource using the following command. The `request` field contains a Base64 encoded PKCS#10 PEM encoded certificate.
 ```shell
 kubectl apply -f sample/sample.yaml
 kubectl get csr

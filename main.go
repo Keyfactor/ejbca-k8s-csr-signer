@@ -110,11 +110,7 @@ func main() {
 		Name:      caCertConfigmapName,
 	}
 
-	ejbcaSignerBuilder, err := signer.NewEjbcaSignerBuilder()
-	if err != nil {
-		setupLog.Error(err, "unable to create EJBCA signer")
-		os.Exit(1)
-	}
+	ejbcaSignerBuilder := signer.NewEjbcaSignerBuilder()
 
 	if err = (&controllers.CertificateSigningRequestReconciler{
 		Client:                   mgr.GetClient(),
@@ -123,6 +119,7 @@ func main() {
 		ClusterResourceNamespace: clusterResourceNamespace,
 		Clock:                    clock.RealClock{},
 		CheckApprovedCondition:   !disableApprovedCheck,
+		CheckServiceAccountScope: true,
 		CredsSecret:              credsSecret,
 		ConfigMap:                configMap,
 		CaCertConfigmap:          caCertConfigmap,
