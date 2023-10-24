@@ -172,6 +172,17 @@ func TestCertificateSigningRequestReconciler_Reconcile(t *testing.T) {
 			signerBuilder:       &FakeSignerBuilder{},
 			expectedCertificate: fakeSuccessCertificate,
 		},
+		"denied": {
+			name: namespacedCsrName,
+			objects: []client.Object{
+				CreateCertificateSigningRequest(namespacedCsrName, certificates.CertificateDenied, fakeCsr, nil),
+				CreateFakeCreds(namespacedCredsName),
+				CreateFakeConfig(namespacedCredsName),
+			},
+			credsSecret:   namespacedCredsName,
+			configMap:     namespacedCredsName,
+			signerBuilder: &FakeSignerBuilder{},
+		},
 		"check-scope": {
 			name: namespacedCsrName,
 			objects: []client.Object{
