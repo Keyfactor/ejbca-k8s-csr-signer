@@ -19,6 +19,9 @@ The cert-manager external issuer for Keyfactor command is open source and commun
 
 ###### To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, see the [contribution guidelines](https://github.com/Keyfactor/command-k8s-csr-signer/blob/main/CONTRIBUTING.md) and use the **[Pull requests](../../pulls)** tab.
 
+## Migration from EJBCA CSR Signer v1.0 to v2.0
+
+The EJBCA CSR Signer v2.0 has breaking changes from v1.0. To migrate from v1.0 to v2.0, uninstall the v1.0 deployment and install the v2.0 deployment. The v2.0 deployment uses the same configuration as v1.0, but the configuration is now stored in a Kubernetes ConfigMap. See the [Getting Started](docs/getting-started.md) to install the v2.0 deployment.
 
 ## Documentation
 * [Getting Started](docs/getting-started.md)

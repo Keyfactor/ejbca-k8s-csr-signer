@@ -176,6 +176,7 @@ Istio must not already be installed in your cluster, since modification of the I
     kubectl -n bookinfo get services
     ```
 
+    Verify that the Bookinfo application is running.
     ```shell
     kubectl -n bookinfo exec "$(kubectl -n bookinfo get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}')" -c ratings -- curl -sS productpage:9080/productpage
     ```
