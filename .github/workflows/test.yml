@@ -57,11 +57,15 @@ jobs:
       # Place the contents of ${{ secrets.EJBCA_CLIENT_CERT_PATH }} into a file at /tmp/certs/ejbca.pem
       - run: mkdir -p /tmp/certs && echo "${{ secrets.EJBCA_CLIENT_CERT }}" > /tmp/certs/ejbca.pem
 
+      # Place the contents of ${{ secrets.EJBCA_CA_CERT_PATH }} into a file at /tmp/certs/ejbca-ca.pem
+      - run: mkdir -p /tmp/certs && echo "${{ secrets.EJBCA_CA_CERT }}" > /tmp/certs/ejbca-ca.pem
+
       # Run Go tests
       - name: Run go test
         run: go test -v ./...
         env:
           EJBCA_CLIENT_CERT_PATH: /tmp/certs/ejbca.pem
+          EJBCA_CA_CERT_PATH: /tmp/certs/ejbca-ca.pem
           EJBCA_CA_NAME: ${{ vars.EJBCA_CA_NAME }}
           EJBCA_HOSTNAME: ${{ secrets.EJBCA_HOSTNAME }}
           EJBCA_CERTIFICATE_PROFILE_NAME: ${{ vars.EJBCA_CERTIFICATE_PROFILE_NAME }}
