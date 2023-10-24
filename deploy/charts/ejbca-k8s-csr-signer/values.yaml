@@ -27,8 +27,11 @@ ejbca:
   # is using a certificate signed by a trusted CA.
   caCertConfigmapName: ""
 
-  signerNames:
-    - "keyfactor.com/*"
+  # Signer names that this signer will respond to. The ClusterRole will set each signer
+  # as resource names with verb "sign".
+  # Signer names must be absolute and not contain wildcards or the signer will interpret
+  # them as foreign in scope.
+  signerNames: []
 
 serviceAccount:
   # Specifies whether a service account should be created

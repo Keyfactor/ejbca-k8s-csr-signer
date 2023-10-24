@@ -34,4 +34,4 @@ data:
   #  chainDepth = 2 => leaf + issuer
   #  chainDepth = 3 => leaf + issuer + issuer
   #  etc
-  chainDepth: "1"
+  chainDepth: "0"

@@ -70,7 +70,7 @@ func CompileCertificatesToPemBytes(certificates []*x509.Certificate) ([]byte, er
 
 func DecodePEMBytes(buf []byte) ([]*pem.Block, *pem.Block) {
 	var privKey *pem.Block
-	var certificates []*pem.Block
+	var certs []*pem.Block
 	var block *pem.Block
 	for {
 		block, buf = pem.Decode(buf)
@@ -79,8 +79,8 @@ func DecodePEMBytes(buf []byte) ([]*pem.Block, *pem.Block) {
 		} else if strings.Contains(block.Type, "PRIVATE KEY") {
 			privKey = block
 		} else {
-			certificates = append(certificates, block)
+			certs = append(certs, block)
 		}
 	}
-	return certificates, privKey
+	return certs, privKey
 }

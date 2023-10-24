@@ -152,7 +152,7 @@ Istio must not already be installed in your cluster, since modification of the I
 
     ```yaml
     cat <<EOF | kubectl apply -f -
-    apiVersion: networking.istio.io/v1alpha3
+    apiVersion: networking.istio.io/v1beta1
     kind: ProxyConfig
     metadata:
       name: bookinfopc
@@ -169,15 +169,48 @@ Istio must not already be installed in your cluster, since modification of the I
     kubectl -n bookinfo apply -f https://raw.githubusercontent.com/istio/istio/master/samples/bookinfo/platform/kube/bookinfo.yaml
     ```
 
+    Verify that all services and pods are correctly defined and running.
+
+    ```shell
+    kubectl -n bookinfo get pods
+    kubectl -n bookinfo get services
+    ```
+
+    ```shell
+    kubectl -n bookinfo exec "$(kubectl -n bookinfo get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}')" -c ratings -- curl -sS productpage:9080/productpage
+    ```
+
+
 5. Apply the Istio Gateway and VirtualService to expose the Bookinfo application.
     
     ```shell
     kubectl -n bookinfo apply -f https://raw.githubusercontent.com/istio/istio/master/samples/bookinfo/networking/bookinfo-gateway.yaml
     ```
 
+    Confirm that the gateway was created.
+
+    ```shell
+    kubectl get gateway -n bookinfo
+    ```
+
 6. Determine the Ingress IP and Port of the Istio Gateway.
     
     ```shell
-    kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-    kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}'
+    export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    if [ -z "$INGRESS_HOST" ]; then
+        export INGRESS_HOST=localhost
+    fi
+    export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+    ```
+
+    Export the gateway URL.
+    ```shell
+    export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+    ```
+
+7. Confirm that the Bookinfo application is running.
+
+    ```shell
+    curl -s http://${GATEWAY_URL}/productpage | grep -o "<title>.*</title>"
+    echo "http://${GATEWAY_URL}/productpage"
     ```
