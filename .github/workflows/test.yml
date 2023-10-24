@@ -54,6 +54,19 @@ jobs:
       # Download dependencies
       - run: go mod download
 
+      # Place the contents of ${{ secrets.EJBCA_CLIENT_CERT_PATH }} into a file at /tmp/certs/ejbca.pem
+      - run: mkdir -p /tmp/certs && echo "${{ secrets.EJBCA_CLIENT_CERT }}" > /tmp/certs/ejbca.pem
+
       # Run Go tests
       - name: Run go test
         run: go test -v ./...
+        env:
+          EJBCA_CLIENT_CERT_PATH: /tmp/certs/ejbca.pem
+          EJBCA_CA_NAME: ${{ vars.EJBCA_CA_NAME }}
+          EJBCA_HOSTNAME: ${{ secrets.EJBCA_HOSTNAME }}
+          EJBCA_CERTIFICATE_PROFILE_NAME: ${{ vars.EJBCA_CERTIFICATE_PROFILE_NAME }}
+          EJBCA_CSR_SUBJECT: ${{ vars.EJBCA_CSR_SUBJECT }}
+          EJBCA_END_ENTITY_PROFILE_NAME: ${{ vars.EJBCA_END_ENTITY_PROFILE_NAME }}
+          EJBCA_EST_ALIAS: ${{ vars.EJBCA_EST_ALIAS }}
+          EJBCA_EST_PASSWORD: ${{ secrets.EJBCA_EST_PASSWORD }}
+          EJBCA_EST_USERNAME: ${{ secrets.EJBCA_EST_USERNAME }}
