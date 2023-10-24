@@ -479,7 +479,7 @@ func (s *ejbcaSigner) signWithRest(csr *certificates.CertificateSigningRequest) 
 		pemChain = append(pemChain, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafAndChain[i].Raw})...)
 	}
 
-	s.logger.Info("Successfully enrolled certificate with EJBCA")
+	s.logger.Info(fmt.Sprintf("Successfully enrolled certificate with EJBCA and built leaf and chain to depth %d", s.chainDepth))
 
 	// Return the certificate and chain in PEM format
 	return pemChain, nil

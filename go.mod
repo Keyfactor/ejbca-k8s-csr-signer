@@ -1,6 +1,6 @@
 module github.com/Keyfactor/ejbca-k8s-csr-signer
 
-go 1.18
+go 1.20
 
 require (
 	github.com/Keyfactor/ejbca-go-client v1.3.7

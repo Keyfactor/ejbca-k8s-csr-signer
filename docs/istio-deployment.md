@@ -201,10 +201,6 @@ Istio must not already be installed in your cluster, since modification of the I
         export INGRESS_HOST=localhost
     fi
     export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
-    ```
-
-    Export the gateway URL.
-    ```shell
     export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
     ```
 
