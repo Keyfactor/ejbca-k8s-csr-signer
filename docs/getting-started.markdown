@@ -64,7 +64,7 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
             --from-literal=password=<password>
         ```
 
-3. The EJCBA K8s CSR Signer uses a K8s ConfigMap to configure its behavior. A [sample](../config.yaml) ConfigMap is provided as a reference.
+3. The EJCBA K8s CSR Signer uses a K8s ConfigMap to configure how certificates are signed by EJBCA, and how signed certificates are stored back into Kubernetes. A [sample](../ejbca-signer-config.yaml) ConfigMap is provided as a reference.
 
     The following fields are required:
     * `ejbcaHostname`: The hostname of the EJBCA instance.
@@ -85,7 +85,6 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
     ```
    
     All fields in the ConfigMap can be overridden using annotations from the CSR at runtime. See the [Annotation Overrides for the EJBCA K8s CSR Signer](annotations.markdown) guide for more information.
-
 
 4. If the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root, the CA certificate must be provided as a Kubernetes configmap.
    
@@ -115,7 +114,7 @@ The EJCBA K8s CSR Signer is installed using a Helm chart. The chart is available
         # --set image.pullPolicy=Never # Only required if using a local image \
         --set image.pullPolicy=Never \
         --set ejbca.credsSecretName=ejbca-credentials \
-        --set ejbca.configMapName=ejbca-config
+        --set ejbca.configMapName=ejbca-signer-config \
         # --set ejbca.caCertConfigmapName=ejbca-ca-cert # Only required if EJBCA API serves an untrusted certificate \
     ```
 
@@ -141,7 +140,7 @@ The EJCBA K8s CSR Signer is installed using a Helm chart. The chart is available
         tag: "latest"
     ejbca:
         credsSecretName: ejbca-credentials
-        configMapName: ejbca-config
+        configMapName: ejbca-signer-config
         caCertConfigmapName: ejbca-ca-cert
         signerNames:
             - internalsigner.com/cluster

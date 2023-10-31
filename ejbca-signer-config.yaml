@@ -1,7 +1,9 @@
+# This configuration file contains default values that configure how certificates are signed by EJBCA,
+# and how signed certificates are stored back into Kubernetes.
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: ejbca-config
+  name: ejbca-signer-config
 data:
   # Hostname of the EJBCA instance
   ejbcaHostname: ""
