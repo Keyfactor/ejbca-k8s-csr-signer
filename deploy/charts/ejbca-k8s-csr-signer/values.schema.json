@@ -81,24 +81,6 @@
         "resources": {
             "type": "object"
         },
-        "autoscaling": {
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "type": "boolean"
-                },
-                "minReplicas": {
-                    "type": "number"
-                },
-                "maxReplicas": {
-                    "type": "number"
-                },
-                "targetCPUUtilizationPercentage": {
-                    "type": "number"
-                }
-            },
-            "required": ["enabled", "minReplicas", "maxReplicas", "targetCPUUtilizationPercentage"]
-        },
         "nodeSelector": {
             "type": "object"
         },
@@ -112,5 +94,5 @@
             "type": "object"
         }
     },
-    "required": ["replicaCount", "image", "ejbca", "serviceAccount", "autoscaling"]
+    "required": ["replicaCount", "image", "ejbca", "serviceAccount"]
 }

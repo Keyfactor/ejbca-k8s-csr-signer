@@ -22,6 +22,20 @@ This guide will walk through configuring Istio to use the EJBCA K8s CSR Signer a
 
 For this tutorial, it's recommended that a distribution of Linux is used as the host operating system.
 
+## Prepare Keyfactor EJBCA
+
+Keyfactor EJBCA must be configured with an active CA and a certificate profile that can support signing of Istio workload certificates. Creating certificate profiles in EJBCA is accomplished via the adminweb interface, and the profile must support the following:
+
+| Element                  | Requirement                                                                                    |
+|--------------------------|------------------------------------------------------------------------------------------------|
+| Public Key Algorithm     | Must support RSA                                                                               |
+| Key Size                 | Must support 2048                                                                              |
+| Signature Algorithm      | Must support SHA256 with RSA                                                                   |
+| Subject DN               | None, Istio workload certificates will not have a subject DN.                                  |
+| Subject Alternative Name | Must support at least 3 DNS Names, and the DNS Names must be allowed to not match the subject. |
+| Key Usage                | Must support Digital Signature and Key Encipherment.                                           |
+| Extended Key Usage       | Must support Server and Client Authentication.                                                 |
+
 ## 1. Deploy the EJBCA K8s CSR Signer
 
 Follow the steps in the [Getting Started](getting-started.markdown) guide to build the container image and prepare the credentials and configuration.

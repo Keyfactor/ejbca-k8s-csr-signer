@@ -369,5 +369,4 @@ FodyWeavers.xsd
 *.key
 credentials.yaml
 
-Makefile
 vendor

@@ -28,7 +28,7 @@ kubectl get nodes
 
 ### 1. Building the Container Image
 
-The EJBCA K8s CSR Signer is is distributed as source code, and the container must be built manually. The container image can be built using the following command:
+The EJBCA K8s CSR Signer is distributed as source code, and the container must be built manually. The container image can be built using the following command:
 ```shell
 make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=keyfactor/ejbca-k8s-csr-signer
 ```
@@ -39,7 +39,7 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
 
 1. Create a new namespace for the CSR proxy.
     ```shell
-    kubectl create namespace ejbca
+    kubectl create namespace ejbca-signer-system
     ```
 
 2. The EJCBA K8s CSR Signer can enroll certificates using the EJBCA REST API and with EST.
@@ -89,7 +89,7 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
 4. If the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root, the CA certificate must be provided as a Kubernetes configmap.
    
    ```shell
-   kubectl -n ejbca-issuer-system create configmap ejbca-ca-cert --from-file=ca.crt
+   kubectl -n ejbca-signer-system create configmap ejbca-ca-cert --from-file=ca.crt
    ```
 
 ### 3. Installation from Helm Chart
@@ -107,8 +107,7 @@ The EJCBA K8s CSR Signer is installed using a Helm chart. The chart is available
     
     ```bash
     helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
-        --namespace ejbca \
-        --create-namespace \
+        --namespace ejbca-signer-system \
         --set image.repository=<your container registry>/keyfactor/ejbca-k8s-csr-signer \
         --set image.tag=<tag> \
         # --set image.pullPolicy=Never # Only required if using a local image \
@@ -118,41 +117,41 @@ The EJCBA K8s CSR Signer is installed using a Helm chart. The chart is available
         # --set ejbca.caCertConfigmapName=ejbca-ca-cert # Only required if EJBCA API serves an untrusted certificate \
     ```
 
-    a. Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to add an authorized signer name to the ClusterRole, run the following command:
+    1. Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to add an authorized signer name to the ClusterRole, run the following command:
 
         ```shell
         helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
-            --namespace ejbca \
-            --create-namespace \
+            --namespace ejbca-signer-system \
             --set image.repository=<your container registry>/keyfactor/ejbca-k8s-csr-signer \
             --set image.tag=<tag> \
             --set ejbca.signerNames[0]=internalsigner.com
         ```
 
-    b. Modifications can also be made by modifying the `values.yaml` file directly. For example, to override the
+    2. Modifications can also be made by modifying the `values.yaml` file directly. For example, to override the
     `signerNames` value, modify the `signerNames` value in the `values.yaml` file:
 
-    ```yaml
-    cat <<EOF > override.yaml
-    image:
-        repository: <your container registry>/keyfactor/ejbca-k8s-csr-signer
-        pullPolicy: Never
-        tag: "latest"
-    ejbca:
-        credsSecretName: ejbca-credentials
-        configMapName: ejbca-signer-config
-        caCertConfigmapName: ejbca-ca-cert
-        signerNames:
-            - internalsigner.com/cluster
-    EOF
-    ```
+        ```yaml
+        cat <<EOF > override.yaml
+        image:
+            repository: <your container registry>/keyfactor/ejbca-k8s-csr-signer
+            pullPolicy: Never
+            tag: "latest"
+        ejbca:
+            credsSecretName: ejbca-credentials
+            configMapName: ejbca-signer-config
+            caCertConfigmapName: ejbca-ca-cert
+            signerNames:
+                - internalsigner.com/cluster
+        EOF
+        ```
 
-    Then, use the `-f` flag to specify the `values.yaml` file:
-    
-    ```yaml
-    helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
-        -f override.yaml
-    ```
+        Then, use the `-f` flag to specify the `values.yaml` file:
+        
+        ```yaml
+        helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
+            -n ejbca-signer-system \
+            -f override.yaml
+        ```
 
 ###### :pushpin: Wildcards are **NOT** supported in the `signerNames` field. If you want to allow all signers, do not specify any signer names.
 
