@@ -49,7 +49,8 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
         Create a `kubernetes.io/tls` secret containing the client certificate and key. The secret must be created in the same namespace as the CSR proxy.
         
         ```shell
-        kubectl -n ejbca create secret tls ejbca-credentials \
+        kubectl create secret tls ejbca-credentials \
+            --namespace ejbca-signer-system \
             --cert=<path to client certificate> \
             --key=<path to client key>
         ```
@@ -59,7 +60,9 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
         Create a `kubernetes.io/basic-auth` secret containing the username and password. The secret must be created in the same namespace as the CSR proxy.
         
         ```shell
-        kubectl -n ejbca create secret generic --type=kubernetes.io/basic-auth ejbca-credentials \
+        kubectl -n ejbca create secret generic ejbca-credentials \
+            --namespace ejbca-signer-system \
+            --type=kubernetes.io/basic-auth \
             --from-literal=username=<username> \
             --from-literal=password=<password>
         ```
@@ -81,16 +84,20 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
 
     Create a new ConfigMap resource using the following command:
     ```shell
-    kubectl -n ejbca apply --from-file=config.yaml
+    kubectl apply \
+        --namespace ejbca-signer-system \
+        --from-file=config.yaml
     ```
    
     All fields in the ConfigMap can be overridden using annotations from the CSR at runtime. See the [Annotation Overrides for the EJBCA K8s CSR Signer](annotations.markdown) guide for more information.
 
 4. If the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root, the CA certificate must be provided as a Kubernetes configmap.
    
-   ```shell
-   kubectl -n ejbca-signer-system create configmap ejbca-ca-cert --from-file=ca.crt
-   ```
+    ```shell
+    kubectl create configmap ejbca-ca-cert \
+       --namespace ejbca-signer-system \
+       --from-file=ca.crt
+    ```
 
 ### 3. Installation from Helm Chart
 
@@ -149,7 +156,7 @@ The EJCBA K8s CSR Signer is installed using a Helm chart. The chart is available
         
         ```yaml
         helm install ejbca-k8s-csr-signer ejbca-k8s/ejbca-k8s-csr-signer \
-            -n ejbca-signer-system \
+            --namespace ejbca-signer-system \
             -f override.yaml
         ```
 
