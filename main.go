@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"github.com/Keyfactor/ejbca-k8s-csr-signer/internal/controllers"
@@ -49,7 +50,6 @@ func main() {
 	var clusterResourceNamespace string
 	var printVersion bool
 	var disableApprovedCheck bool
-
 	var credsSecretName, configMapName, caCertConfigmapName string
 
 	flag.StringVar(&credsSecretName, "credential-secret-name", "", "The name of the secret containing the EJBCA credentials")
@@ -97,6 +97,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx := context.Background()
+	configClient, err := util.NewConfigClient(ctx)
+	if err != nil {
+		setupLog.Error(err, "error creating config client")
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		HealthProbeBindAddress: probeAddr,
@@ -129,6 +135,7 @@ func main() {
 	ejbcaSignerBuilder := signer.NewEjbcaSignerBuilder()
 
 	if err = (&controllers.CertificateSigningRequestReconciler{
+		ConfigClient:             configClient,
 		Client:                   mgr.GetClient(),
 		Scheme:                   mgr.GetScheme(),
 		SignerBuilder:            ejbcaSignerBuilder,
