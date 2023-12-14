@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Keyfactor Command Authors.
+Copyright © 2023 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -81,22 +81,28 @@ type ejbcaSigner struct {
 	restClient *ejbca.APIClient
 }
 
+// NewEjbcaSignerBuilder returns a new Builder for the EJBCA signer
 func NewEjbcaSignerBuilder() Builder {
 	return &ejbcaSigner{}
 }
 
+// Reset resets the Builder to its initial state for reuse
 func (s *ejbcaSigner) Reset() Builder {
 	s.errs = make([]error, 0)
 	s.enrollWithEst = false
 	return s
 }
 
+// WithContext sets the context for the Builder
 func (s *ejbcaSigner) WithContext(ctx context.Context) Builder {
 	s.ctx = ctx
 	s.logger = log.FromContext(ctx)
 	return s
 }
 
+// WithCredsSecret sets the credentials secret for the Builder. If the secret is of type TLS, the signer will
+// authenticate to the EJBCA API using a client certificate. If the secret is of type BasicAuth, the signer will
+// authenticate to the EJBCA EST API using HTTP Basic Auth.
 func (s *ejbcaSigner) WithCredsSecret(secret corev1.Secret) Builder {
 	if secret.Type == corev1.SecretTypeTLS {
 		// If we have a TLS secret, we will assume that we are not enrolling with EST and will authenticate to
@@ -136,6 +142,7 @@ func (s *ejbcaSigner) WithCredsSecret(secret corev1.Secret) Builder {
 	return s
 }
 
+// WithConfigMap sets the configuration config map for the Builder.
 func (s *ejbcaSigner) WithConfigMap(config corev1.ConfigMap) Builder {
 	if host, ok := config.Data["ejbcaHostname"]; ok && host != "" {
 		s.hostname = config.Data["ejbcaHostname"]
@@ -174,6 +181,7 @@ func (s *ejbcaSigner) WithConfigMap(config corev1.ConfigMap) Builder {
 	return s
 }
 
+// WithCACertConfigMap sets the CA certificate config map for the Builder. The CA certificate config map is optional.
 func (s *ejbcaSigner) WithCACertConfigMap(config corev1.ConfigMap) Builder {
 	if len(config.Data) == 0 {
 		return s
@@ -208,6 +216,9 @@ func (s *ejbcaSigner) WithCACertConfigMap(config corev1.ConfigMap) Builder {
 	return s
 }
 
+// PreFlight performs preflight checks to ensure that the signer is ready to sign CSRs.
+// If the builder is configured to sign certificates with the EJBCA EST API, this method will create an EJBCA EST client.
+// If the builder is configured to sign certificates with the EJBCA REST API, this method will create an EJBCA REST client.
 func (s *ejbcaSigner) PreFlight() error {
 	var err error
 
@@ -229,6 +240,9 @@ func (s *ejbcaSigner) PreFlight() error {
 	return utilerrors.NewAggregate(s.errs)
 }
 
+// newRestClient creates a new EJBCA REST API client using the EJBCA Go Client SDK.
+// It sets up the client to use the client certificate from the credentials secret
+// and the CA certificate from the CA certificate config map.
 func (s *ejbcaSigner) newRestClient() (*ejbca.APIClient, error) {
 	// Create EJBCA API Client
 	ejbcaConfig := ejbca.NewConfiguration()
@@ -310,6 +324,8 @@ func (s *ejbcaSigner) newRestClient() (*ejbca.APIClient, error) {
 	return client, nil
 }
 
+// newEstClient creates a new EJBCA EST API client using the EJBCA Go Client.
+// It sets up the client to use HTTP Basic Auth with the username and password from the credentials secret
 func (s *ejbcaSigner) newEstClient() (*ejbcaest.Client, error) {
 	// Get username and password from secret
 	username, ok := s.creds.Data["username"]
@@ -358,6 +374,8 @@ func (s *ejbcaSigner) newEstClient() (*ejbcaest.Client, error) {
 	return ejbcaClient, nil
 }
 
+// Build builds the Signer from the Builder, but secretly returns the Builder since it implements
+// the Signer interface as well.
 func (s *ejbcaSigner) Build() Signer {
 	if !s.preflightComplete {
 		s.logger.Error(fmt.Errorf("preflight not complete"), "preflight must be completed before building signer")
@@ -367,6 +385,7 @@ func (s *ejbcaSigner) Build() Signer {
 	return s
 }
 
+// Sign signs the given CSR using the configured EJBCA API client.
 func (s *ejbcaSigner) Sign(csr certificates.CertificateSigningRequest) ([]byte, error) {
 	if s.enrollWithEst {
 		return s.signWithEst(&csr)
@@ -375,6 +394,7 @@ func (s *ejbcaSigner) Sign(csr certificates.CertificateSigningRequest) ([]byte, 
 	}
 }
 
+// getEndEntityName determines the EJBCA end entity name based on the CSR and the defaultEndEntityName option.
 func (s *ejbcaSigner) getEndEntityName(csr *x509.CertificateRequest) string {
 	eeName := ""
 	// 1. If the endEntityName option is set, determine the end entity name based on the option
@@ -429,6 +449,8 @@ func (s *ejbcaSigner) getEndEntityName(csr *x509.CertificateRequest) string {
 	return eeName
 }
 
+// deprecatedAnnotationGetter is a helper function to get annotations that were
+// specified without the ejbca-k8s-csr-signer.keyfactor.com/ prefix.
 func (s *ejbcaSigner) deprecatedAnnotationGetter(annotations map[string]string, annotation string) string {
 	annotationValue, ok := annotations[annotation]
 	if ok {
@@ -439,6 +461,7 @@ func (s *ejbcaSigner) deprecatedAnnotationGetter(annotations map[string]string, 
 	return ""
 }
 
+// signWithRest sets up a request to the EJBCA REST API and enrolls the certificate.
 func (s *ejbcaSigner) signWithRest(csr *certificates.CertificateSigningRequest) ([]byte, error) {
 	annotations := csr.GetAnnotations()
 
@@ -573,6 +596,7 @@ func (s *ejbcaSigner) signWithRest(csr *certificates.CertificateSigningRequest) 
 	return pemChain, nil
 }
 
+// parseCSR parses a PEM encoded PKCS#10 CSR to an x509.CertificateRequest object
 func parseCSR(pemBytes []byte) (*x509.CertificateRequest, error) {
 	// extract PEM from request object
 	block, _ := pem.Decode(pemBytes)
@@ -582,6 +606,7 @@ func parseCSR(pemBytes []byte) (*x509.CertificateRequest, error) {
 	return x509.ParseCertificateRequest(block.Bytes)
 }
 
+// getCertificatesFromEjbcaObject is a helper function to get the certificates from an EJBCA API response.
 func getCertificatesFromEjbcaObject(ejbcaCert ejbca.CertificateRestResponse) ([]*x509.Certificate, bool, error) {
 	var certBytes []byte
 	var err error
@@ -640,6 +665,7 @@ func getCertificatesFromEjbcaObject(ejbcaCert ejbca.CertificateRestResponse) ([]
 	return certs, certChainFound, nil
 }
 
+// signWithEst sets up a request to the EJBCA EST API and enrolls the certificate.
 func (s *ejbcaSigner) signWithEst(csr *certificates.CertificateSigningRequest) ([]byte, error) {
 	annotations := csr.GetAnnotations()
 	alias := "" // Default is already set in the EST client
@@ -711,11 +737,13 @@ func (s *ejbcaSigner) signWithEst(csr *certificates.CertificateSigningRequest) (
 	return pemChain, nil
 }
 
+// ptr is a helper function to return a pointer to a value
 func ptr[T any](v T) *T {
 	return &v
 }
 
 // From https://github.com/hashicorp/terraform-plugin-sdk/blob/v2.10.0/helper/acctest/random.go#L51
+// randStringFromCharSet generates a random string of a given length from a given character set.
 func randStringFromCharSet(strlen int) string {
 	charSet := "abcdefghijklmnopqrstuvwxyz012346789"
 	result := make([]byte, strlen)

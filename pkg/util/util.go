@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Keyfactor Command Authors.
+Copyright © 2023 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -54,6 +54,8 @@ func IsCertificateRequestApproved(csr certificates.CertificateSigningRequest) bo
 	return approved && !denied
 }
 
+// getCertApprovalCondition returns true if a certificate request has the
+// "Approved" condition and no "Denied" conditions; false otherwise.
 func getCertApprovalCondition(status certificates.CertificateSigningRequestStatus) (approved bool, denied bool) {
 	for _, c := range status.Conditions {
 		if c.Type == certificates.CertificateApproved {
@@ -84,6 +86,8 @@ func CompileCertificatesToPemBytes(certificates []*x509.Certificate) ([]byte, er
 	return []byte(leafAndChain.String()), nil
 }
 
+// DecodePEMBytes takes a byte array and returns a slice of PEM blocks containing
+// certificates and a PEM block containing a private key if one exists.
 func DecodePEMBytes(buf []byte) ([]*pem.Block, *pem.Block) {
 	var privKey *pem.Block
 	var certs []*pem.Block

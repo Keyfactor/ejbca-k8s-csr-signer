@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Keyfactor Command Authors.
+Copyright © 2023 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// ConfigClient is an interface for a K8s REST client.
 type ConfigClient interface {
 	SetContext(ctx context.Context)
 	GetConfigMap(name types.NamespacedName, out *corev1.ConfigMap) error
@@ -43,6 +44,7 @@ type configClient struct {
 	verifyAccessFunc func(apiResource string, resource types.NamespacedName) error
 }
 
+// NewConfigClient creates a new K8s REST client using the configuration from the controller-runtime.
 func NewConfigClient(ctx context.Context) (ConfigClient, error) {
 	config := ctrl.GetConfigOrDie()
 
@@ -64,11 +66,14 @@ func NewConfigClient(ctx context.Context) (ConfigClient, error) {
 	return client, nil
 }
 
+// SetContext sets the context for the client.
 func (c *configClient) SetContext(ctx context.Context) {
 	c.ctx = ctx
 	c.logger = klog.FromContext(ctx)
 }
 
+// verifyAccessToResource verifies that the client has access to the given resource using the K8s
+// SelfSubjectAccessReview API.
 func (c *configClient) verifyAccessToResource(apiResource string, resource types.NamespacedName) error {
 	verbs := []string{"get", "list", "watch"}
 
@@ -101,6 +106,7 @@ func (c *configClient) verifyAccessToResource(apiResource string, resource types
 	return nil
 }
 
+// GetConfigMap gets the configmap with the given name and namespace and copies it into the out parameter.
 func (c *configClient) GetConfigMap(name types.NamespacedName, out *corev1.ConfigMap) error {
 	if c == nil {
 		return fmt.Errorf("config client is nil")
@@ -126,6 +132,7 @@ func (c *configClient) GetConfigMap(name types.NamespacedName, out *corev1.Confi
 	return nil
 }
 
+// GetSecret gets the secret with the given name and namespace and copies it into the out parameter.
 func (c *configClient) GetSecret(name types.NamespacedName, out *corev1.Secret) error {
 	if c == nil {
 		return fmt.Errorf("config client is nil")
