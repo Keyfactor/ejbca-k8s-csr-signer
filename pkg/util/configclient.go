@@ -72,8 +72,9 @@ func (c *configClient) SetContext(ctx context.Context) {
 	c.logger = klog.FromContext(ctx)
 }
 
-// verifyAccessToResource verifies that the client has access to the given resource using the K8s
-// SelfSubjectAccessReview API.
+// verifyAccessToResource verifies that the client has access to a given resource in a given namespace
+// by creating a SelfSubjectAccessReview. This is done to avoid errors when the client does not have
+// access to the resource.
 func (c *configClient) verifyAccessToResource(apiResource string, resource types.NamespacedName) error {
 	verbs := []string{"get", "list", "watch"}
 
@@ -114,6 +115,8 @@ func (c *configClient) GetConfigMap(name types.NamespacedName, out *corev1.Confi
 
 	// Check if the client has access to the configmap resource
 	if _, ok := c.accessCache[name.String()]; !ok {
+		// If this is the first time the client is accessing the resource and it does have
+		// permission, add it to the access cache so that it does not need to be checked again.
 		err := c.verifyAccessFunc("configmaps", name)
 		if err != nil {
 			return err
