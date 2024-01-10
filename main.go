@@ -1,130 +1,168 @@
+/*
+Copyright © 2023 Keyfactor
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
-    "context"
-    "fmt"
-    "github.com/Keyfactor/ejbca-go-client/pkg/ejbca"
-    "github.com/Keyfactor/ejbca-k8s-csr-signer/internal/health"
-    "github.com/Keyfactor/ejbca-k8s-csr-signer/internal/signer"
-    "github.com/Keyfactor/ejbca-k8s-csr-signer/pkg/config"
-    "github.com/Keyfactor/ejbca-k8s-csr-signer/pkg/credential"
-    "github.com/Keyfactor/ejbca-k8s-csr-signer/pkg/logger"
-    "k8s.io/client-go/informers"
-    "k8s.io/client-go/kubernetes"
-    "k8s.io/client-go/rest"
-    "os"
+	"context"
+	"errors"
+	"flag"
+	"github.com/Keyfactor/ejbca-k8s-csr-signer/internal/controllers"
+	"github.com/Keyfactor/ejbca-k8s-csr-signer/internal/signer"
+	"github.com/Keyfactor/ejbca-k8s-csr-signer/pkg/util"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/clock"
+	"os"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
-    mainLog = logger.Register("Main")
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
 )
 
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+}
+
 func main() {
-    // Serialize configuration
-    serverConfig, err := config.LoadConfig()
-    if err != nil {
-        mainLog.Fatal(err)
-        return
-    }
-    credentials, err := credential.LoadCredential()
-    if err != nil {
-        mainLog.Fatal(err)
-        return
-    }
+	var metricsAddr string
+	var enableLeaderElection bool
+	var probeAddr string
+	var clusterResourceNamespace string
+	var printVersion bool
+	var disableApprovedCheck bool
+	var credsSecretName, configMapName, caCertConfigmapName string
 
-    // Create a new EJBCA client using config
-    ejbcaConfig := &ejbca.Config{
-        CertificateFile:                 credentials.ClientCertPath,
-        KeyPassword:                     credentials.KeyPassword,
-        DefaultCertificateProfileName:   serverConfig.DefaultCertificateProfileName,
-        DefaultEndEntityProfileName:     serverConfig.DefaultEndEntityProfileName,
-        DefaultCertificateAuthorityName: serverConfig.DefaultCertificateAuthorityName,
-        DefaultESTAlias:                 serverConfig.DefaultESTAlias,
-    }
+	flag.StringVar(&credsSecretName, "credential-secret-name", "", "The name of the secret containing the EJBCA credentials")
+	flag.StringVar(&configMapName, "configmap-name", "", "The name of the configmap containing the signer configuration")
+	flag.StringVar(&caCertConfigmapName, "ca-cert-configmap-name", "", "The name of the configmap containing the root CAs of the EJBCA API server")
 
-    ejbcaFactory, err := ejbca.ClientFactory(credentials.Hostname, ejbcaConfig)
-    if err != nil {
-        mainLog.Fatal(err)
-    }
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&clusterResourceNamespace, "cluster-resource-namespace", "", "The namespace for secrets in which cluster-scoped resources are found.")
+	flag.BoolVar(&printVersion, "version", false, "Print version to stdout and exit")
+	flag.BoolVar(&disableApprovedCheck, "disable-approved-check", false,
+		"Disables waiting for CertificateRequests to have an approved condition before signing.")
 
-    var ejbcaClient *ejbca.Client
-    if serverConfig.UseEST {
-        mainLog.Debugln("Creating EJBCA EST client (useEST=true)")
-        if credentials.EJBCAUsername == "" {
-            mainLog.Fatal("EJBCA username is required when using EST. Ensure that ejbcaUsername is set in the credentials secret")
-        }
-        if credentials.EJBCAPassword == "" {
-            mainLog.Fatal("EJBCA password is required when using EST. Ensure that ejbcaPassword is set in the credentials secret")
-        }
-        ejbcaClient, err = ejbcaFactory.NewESTClient(credentials.EJBCAUsername, credentials.EJBCAPassword)
-        if err != nil {
-            mainLog.Fatal(err)
-        }
-    } else {
-        mainLog.Debugln("Creating EJBCA client (useEST=false)")
-        ejbcaClient, err = ejbcaFactory.NewEJBCAClient()
-        if err != nil {
-            mainLog.Fatal(err)
-        }
-    }
+	opts := zap.Options{
+		Development: true,
+	}
+	opts.BindFlags(flag.CommandLine)
+	flag.Parse()
 
-    k8sClient, err := NewInClusterClient()
-    if err != nil {
-        mainLog.Fatal(err)
-    }
-    mainLog.Info("Created in-cluster Kubernetes client")
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-    errChan := make(chan error)
+	if clusterResourceNamespace == "" {
+		var err error
+		clusterResourceNamespace, err = util.GetInClusterNamespace()
+		if err != nil {
+			if errors.Is(err, errors.New("not running in-cluster")) {
+				setupLog.Error(err, "please supply --cluster-resource-namespace")
+			} else {
+				setupLog.Error(err, "unexpected error while getting in-cluster Namespace")
+			}
+			os.Exit(1)
+		}
+	}
 
-    healthService := &health.ServiceHealthCheck{
-        Addr: serverConfig.HealthCheckPort,
-    }
+	if credsSecretName == "" {
+		setupLog.Error(errors.New("please supply --credential-secret-name"), "")
+		os.Exit(1)
+	}
 
-    go func() {
-        err = healthService.Serve()
-        if err != nil {
-            mainLog.Errorf("Failed to start health check service: %s", err.Error())
-        }
-        errChan <- err
-    }()
+	if configMapName == "" {
+		setupLog.Error(errors.New("please supply --configmap-name"), "")
+		os.Exit(1)
+	}
 
-    var name string
-    if name = os.Getenv("SERVICE_NAME"); name == "" {
-        name = "ejbca-csr-signer" // default name
-    }
+	ctx := context.Background()
+	configClient, err := util.NewConfigClient(ctx)
+	if err != nil {
+		setupLog.Error(err, "error creating config client")
+	}
 
-    ctx := context.Background()
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:                 scheme,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         enableLeaderElection,
+		LeaderElectionID:       "b68cef23.keyfactor.com",
+		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
+		// when the Manager ends. This requires the binary to immediately end when the
+		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
+		// speeds up voluntary leader transitions as the new leader don't have to wait
+		// LeaseDuration time first.
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
 
-    informerFactory := informers.NewSharedInformerFactory(k8sClient, 0)
-    csrInformer := informerFactory.Certificates().V1().CertificateSigningRequests()
+	credsSecret := types.NamespacedName{
+		Namespace: clusterResourceNamespace,
+		Name:      credsSecretName,
+	}
+	configMap := types.NamespacedName{
+		Namespace: clusterResourceNamespace,
+		Name:      configMapName,
+	}
+	caCertConfigmap := types.NamespacedName{
+		Namespace: clusterResourceNamespace,
+		Name:      caCertConfigmapName,
+	}
 
-    certificateController := signer.NewCertificateController(name, k8sClient, csrInformer, ejbcaClient, serverConfig.ChainDepth)
-    informerFactory.Start(ctx.Done())
+	ejbcaSignerBuilder := signer.NewEjbcaSignerBuilder()
 
-    go certificateController.Run(ctx, 3)
+	if err = (&controllers.CertificateSigningRequestReconciler{
+		ConfigClient:             configClient,
+		Client:                   mgr.GetClient(),
+		Scheme:                   mgr.GetScheme(),
+		SignerBuilder:            ejbcaSignerBuilder,
+		ClusterResourceNamespace: clusterResourceNamespace,
+		Clock:                    clock.RealClock{},
+		CheckApprovedCondition:   !disableApprovedCheck,
+		CheckServiceAccountScope: true,
+		CredsSecret:              credsSecret,
+		ConfigMap:                configMap,
+		CaCertConfigmap:          caCertConfigmap,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CertificateSigningRequest")
+		os.Exit(1)
+	}
 
-    err = <-errChan
+	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err = mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
 
-    mainLog.Fatal("EJBCA Certificate Controller closed; %s", err.Error())
-}
-func homeDir() string {
-    if h := os.Getenv("HOME"); h != "" {
-        return h
-    }
-    return os.Getenv("USERPROFILE") // windows
-}
-
-func NewInClusterClient() (*kubernetes.Clientset, error) {
-    conf, err := rest.InClusterConfig()
-    if err != nil {
-        return nil, fmt.Errorf("create config failed: %v", err)
-    }
-    mainLog.Tracef("Got kubernetes config in cluster: %v", conf)
-
-    client, err := kubernetes.NewForConfig(conf)
-    if err != nil {
-        mainLog.Errorf("Failed to create in-cluster Kubernetes client")
-        return nil, fmt.Errorf("create kubernetes client failed: %v", err)
-    }
-    return client, nil
+	setupLog.Info("starting manager")
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
 }

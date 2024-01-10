@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "ejbca-k8s-csr-signer.fullname" . }}-test-connection"
+  labels:
+    {{- include "ejbca-k8s-csr-signer.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "ejbca-k8s-csr-signer.fullname" . }}:{{ .Values.ejbca.port }}']
+  restartPolicy: Never
