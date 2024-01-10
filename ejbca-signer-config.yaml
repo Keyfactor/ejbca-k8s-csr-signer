@@ -1,0 +1,38 @@
+# This configuration file contains default values that configure how certificates are signed by EJBCA,
+# and how signed certificates are stored back into Kubernetes.
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ejbca-signer-config
+data:
+  # Hostname of the EJBCA instance
+  ejbcaHostname: ""
+
+  # Default end entity name to use for enrollment
+  #   * cn: Uses the Common Name from the CSR's Distinguished Name.
+  #   * dns: Uses the first DNS Name from the CSR's Subject Alternative Names (SANs).
+  #   * uri: Uses the first URI from the CSR's Subject Alternative Names (SANs).
+  #   * ip: Uses the first IP Address from the CSR's Subject Alternative Names (SANs).
+  #   * Custom Value: Any other string will be directly used as the End Entity Name.
+  defaultEndEntityName: ""
+
+  # Default certificate profile name to use for enrollment
+  defaultCertificateProfileName: ""
+
+  # Default end entity profile name to use for enrollment
+  defaultEndEntityProfileName: ""
+
+  # Default certificate authority name to use for enrollment
+  defaultCertificateAuthorityName: ""
+
+  # Default EST alias to use for enrollment, if the signer was configured
+  # to use EST.
+  defaultESTAlias: ""
+
+  # The length of the certificate chain included with the leaf certificate.
+  #  chainDepth = 0 => whole chain
+  #  chainDepth = 1 => just the leaf
+  #  chainDepth = 2 => leaf + issuer
+  #  chainDepth = 3 => leaf + issuer + issuer
+  #  etc
+  chainDepth: "0"
