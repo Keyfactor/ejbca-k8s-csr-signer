@@ -86,7 +86,7 @@ make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=ke
     ```shell
     kubectl apply \
         --namespace ejbca-signer-system \
-        --from-file=config.yaml
+        --from-file=ejbca-signer-config.yaml
     ```
    
     All fields in the ConfigMap can be overridden using annotations from the CSR at runtime. See the [Annotation Overrides for the EJBCA K8s CSR Signer](annotations.markdown) guide for more information.
