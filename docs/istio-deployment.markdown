@@ -38,7 +38,7 @@ Keyfactor EJBCA must be configured with an active CA and a certificate profile t
 
 ## 1. Deploy the EJBCA K8s CSR Signer
 
-Follow the steps in the [Getting Started](getting-started.markdown) guide to build the container image and prepare the credentials and configuration.
+Follow the steps in the [Getting Started](getting-started.markdown) guide to build the container image and prepare the credentials and configuration. The `chainDepth` field in the `ejbca-signer-config.yaml` can be set to `1` since the CA chain will be provided to Istio via the IstioOperator.
 
 ## 2. Prepare Istio
 
@@ -199,8 +199,12 @@ Istio must not already be installed in your cluster, since modification of the I
     kubectl -n bookinfo exec "$(kubectl -n bookinfo get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}')" -c ratings -- curl -sS productpage:9080/productpage
     ```
 
+    Observe the mTLS certificate and chain.
+    ```shell
+    kubectl -n bookinfo exec "$(kubectl -n bookinfo get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}')" -c istio-proxy -- openssl s_client -showcerts -connect productpage.bookinfo:9080
+    ```
 
-5. Apply the Istio Gateway and VirtualService to expose the Bookinfo application.
+6. Apply the Istio Gateway and VirtualService to expose the Bookinfo application.
     
     ```shell
     kubectl -n bookinfo apply -f https://raw.githubusercontent.com/istio/istio/master/samples/bookinfo/networking/bookinfo-gateway.yaml
@@ -212,7 +216,7 @@ Istio must not already be installed in your cluster, since modification of the I
     kubectl get gateway -n bookinfo
     ```
 
-6. Determine the Ingress IP and Port of the Istio Gateway.
+7. Determine the Ingress IP and Port of the Istio Gateway.
     
     ```shell
     export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
@@ -223,7 +227,7 @@ Istio must not already be installed in your cluster, since modification of the I
     export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
     ```
 
-7. Confirm that the Bookinfo application is running.
+8. Confirm that the Bookinfo application is running.
 
     ```shell
     curl -s http://${GATEWAY_URL}/productpage | grep -o "<title>.*</title>"
