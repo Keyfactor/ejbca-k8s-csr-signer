@@ -3,10 +3,10 @@ module github.com/Keyfactor/ejbca-k8s-csr-signer
 go 1.20
 
 require (
-	github.com/Keyfactor/ejbca-go-client v1.3.7
 	github.com/Keyfactor/ejbca-go-client-sdk v0.1.5
 	github.com/go-logr/logr v1.3.0
 	github.com/stretchr/testify v1.8.4
+	go.mozilla.org/pkcs7 v0.0.0-20210826202110-33d05740a352
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
 	k8s.io/client-go v0.28.4
@@ -49,7 +49,6 @@ require (
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	go.mozilla.org/pkcs7 v0.0.0-20210826202110-33d05740a352 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb // indirect
