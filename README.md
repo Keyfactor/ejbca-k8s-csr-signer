@@ -3,7 +3,7 @@
 
 An implementation of the Kubernetes CSR signing API that routes Certificate Signing Requests from the cluster to the EJBCA Enrollment API
 
-#### Integration status: Pilot - Ready for use in test environments. Not for use in production.
+#### Integration status: Production - Ready for use in production environments.
 
 ## About the Keyfactor API Client
 
