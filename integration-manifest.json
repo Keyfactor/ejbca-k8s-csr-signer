@@ -2,7 +2,7 @@
   "$schema": "https://keyfactor.github.io/integration-manifest-schema.json",
   "integration_type": "api-client",
   "name": "ejbca-k8s-csr-signer",
-  "status": "pilot",
+  "status": "production",
   "link_github": true,
   "description": "An implementation of the Kubernetes CSR signing API that routes Certificate Signing Requests from the cluster to the EJBCA Enrollment API",
   "support_level": "kf-community",

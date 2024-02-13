@@ -1,3 +1,9 @@
+# v2.1.0
+## Features
+
+### Signer
+- Implemented in-project EST client to remove EJBCA Go Client as dependency
+
 # v2.0.0
 ## Features
 
