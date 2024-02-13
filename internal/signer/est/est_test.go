@@ -84,7 +84,10 @@ func TestClient_SimpleEnrollSuccess(t *testing.T) {
 		w.Header().Set("Content-Type", "application/pkcs7-mime")
 		w.Header().Set("Content-Transfer-Encoding", "base64")
 		w.WriteHeader(200)
-		w.Write(b64Pkcs7)
+		_, err = w.Write(b64Pkcs7)
+        if err != nil {
+            t.Fatalf("Failed to write response: %v", err)
+        }
 	}
 
 	testServer := httptest.NewTLSServer(http.HandlerFunc(simpleEnrollResponder))
@@ -104,6 +107,9 @@ func TestClient_SimpleEnrollSuccess(t *testing.T) {
 	}
 
 	csr, _, err := generateCSR("CN=test.com", []string{}, []string{}, []string{})
+    if err != nil {
+        t.Fatalf("failed to generate CSR: %s", err.Error())
+    }
 
 	certs, err := client.SimpleEnroll(estAlias, string(csr))
 	if err != nil {
@@ -111,7 +117,7 @@ func TestClient_SimpleEnrollSuccess(t *testing.T) {
 	}
 
 	if len(certs) != 1 {
-		t.Fatal(fmt.Sprintf("Expected SimpleEnroll to return exactly 1 certificate - got back %d", len(certs)))
+		t.Fatalf("Expected SimpleEnroll to return exactly 1 certificate - got back %d", len(certs))
 	}
 
 	if certs[0].Subject.CommonName != cert.Subject.CommonName {
@@ -123,7 +129,156 @@ func TestClient_SimpleEnrollSuccess(t *testing.T) {
 	}
 }
 
-func TestClient_CaCerts(t *testing.T) {
+func TestClient_SimpleEnrollNoAliasSuccess(t *testing.T) {
+	username := "user"
+	password := "password"
+
+	cert, err := generateSelfSignedCertificate()
+	if err != nil {
+		t.Fatalf("failed to generate self-signed certificate: %s", err.Error())
+	}
+
+	simpleEnrollResponder := func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("Request: %v", r)
+
+		if r.URL.Path != "/.well-known/est/simpleenroll" {
+            t.Fatalf("Expected URL path to be /.well-known/est/simpleenroll, got %s", r.URL.Path)
+		}
+
+		if r.Header.Get("Content-Type") != "application/pkcs10" {
+			t.Fatalf("Expected Content-Type to be application/pkcs10, got %s", r.Header.Get("Content-Type"))
+		}
+
+		if r.Header.Get("Content-Transfer-Encoding") != "base64" {
+			t.Fatalf("Expected Content-Transfer-Encoding to be base64, got %s", r.Header.Get("Content-Transfer-Encoding"))
+		}
+
+		b64AuthString := r.Header.Get("Authorization")
+		authString, err := base64.StdEncoding.DecodeString(b64AuthString[6:])
+		if err != nil {
+			t.Fatalf("Failed to decode base64 auth string: %s", err.Error())
+		}
+
+		if string(authString) != fmt.Sprintf("%s:%s", username, password) {
+			t.Fatalf("Expected Authorization header to be %s:%s, got %s", username, password, string(authString))
+		}
+
+		t.Logf("SimpleEnroll request validated successfully")
+
+		b64Pkcs7 := exportCertificateToB64Pkcs7(cert)
+
+		w.Header().Set("Content-Type", "application/pkcs7-mime")
+		w.Header().Set("Content-Transfer-Encoding", "base64")
+		w.WriteHeader(200)
+		_, err = w.Write(b64Pkcs7)
+        if err != nil {
+            t.Fatalf("Failed to write response: %v", err)
+        }
+	}
+
+	testServer := httptest.NewTLSServer(http.HandlerFunc(simpleEnrollResponder))
+	defer testServer.Close()
+
+	ctx := ctrl.LoggerInto(context.TODO(), logrtesting.New(t))
+
+	client, err := NewBuilder(testServer.URL).
+		WithContext(ctx).
+		WithClient(http.DefaultClient).
+		WithCaCertificates([]*x509.Certificate{testServer.Certificate()}).
+		WithBasicAuth(username, password).
+		Build()
+	if err != nil {
+		t.Fatalf("failed to create client: %s", err.Error())
+	}
+
+	csr, _, err := generateCSR("CN=test.com", []string{}, []string{}, []string{})
+    if err != nil {
+        t.Fatalf("failed to generate CSR: %s", err.Error())
+    }
+
+	certs, err := client.SimpleEnroll("", string(csr))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(certs) != 1 {
+		t.Fatalf("Expected SimpleEnroll to return exactly 1 certificate - got back %d", len(certs))
+	}
+
+	if certs[0].Subject.CommonName != cert.Subject.CommonName {
+		t.Fatalf("Expected CommonName to be %s, got %s", cert.Subject.CommonName, certs[0].Subject.CommonName)
+	}
+
+	if certs[0].SerialNumber.Cmp(cert.SerialNumber) != 0 {
+		t.Fatalf("Expected SerialNumber to be %s, got %s", cert.SerialNumber, certs[0].SerialNumber)
+	}
+}
+
+func TestClient_SimpleEnrollFailure(t *testing.T) {
+	username := "user"
+	password := "password"
+	estAlias := "testAlias"
+
+    testCases := []struct {
+        name string
+        handlerFunc func(w http.ResponseWriter, r *http.Request)
+        expectedError error
+    }{
+        {
+            name: "InvalidContentType",
+            handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+                w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(200)
+            },
+            expectedError: fmt.Errorf("unexpected content-type: application/json"),
+        },
+        {
+            name: "InvalidContentTransferEncoding",
+            handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+                w.Header().Set("Content-Type", "application/pkcs7-mime")
+                w.Header().Set("Content-Transfer-Encoding", "binary")
+                w.WriteHeader(200)
+            },
+            expectedError: fmt.Errorf("unexpected content-transfer-encoding: binary"),
+        },
+    }
+
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            testServer := httptest.NewTLSServer(http.HandlerFunc(tc.handlerFunc))
+            defer testServer.Close()
+
+            ctx := ctrl.LoggerInto(context.TODO(), logrtesting.New(t))
+
+            client, err := NewBuilder(testServer.URL).
+                WithContext(ctx).
+                WithClient(http.DefaultClient).
+                WithCaCertificates([]*x509.Certificate{testServer.Certificate()}).
+                WithBasicAuth(username, password).
+                WithDefaultESTAlias(estAlias).
+                Build()
+            if err != nil {
+                t.Fatalf("failed to create client: %s", err.Error())
+            }
+
+            csr, _, err := generateCSR("CN=test.com", []string{}, []string{}, []string{})
+            if err != nil {
+                t.Fatalf("failed to generate CSR: %s", err.Error())
+            }
+
+            _, err = client.SimpleEnroll(estAlias, string(csr))
+            if err == nil {
+                t.Fatal("Expected SimpleEnroll to return an error")
+            }
+
+            if err.Error() != tc.expectedError.Error() {
+                t.Fatalf("Expected error to be %q, got %q", tc.expectedError.Error(), err.Error())
+            }
+        })
+    }
+}
+
+func TestClient_CaCertsSuccess(t *testing.T) {
 	estAlias := "testAlias"
 
 	cert, err := generateSelfSignedCertificate()
@@ -145,7 +300,10 @@ func TestClient_CaCerts(t *testing.T) {
 		w.Header().Set("Content-Type", "application/pkcs7-mime")
 		w.Header().Set("Content-Transfer-Encoding", "base64")
 		w.WriteHeader(200)
-		w.Write(b64Pkcs7)
+		_, err = w.Write(b64Pkcs7)
+        if err != nil {
+            t.Fatalf("Failed to write response: %v", err)
+        }
 	}
 
 	testServer := httptest.NewTLSServer(http.HandlerFunc(caCertsResponder))
@@ -169,7 +327,7 @@ func TestClient_CaCerts(t *testing.T) {
 	}
 
 	if len(certs) != 1 {
-		t.Fatal(fmt.Sprintf("Expected CaCerts to return exactly 1 certificate - got back %d", len(certs)))
+		t.Fatalf("Expected CaCerts to return exactly 1 certificate - got back %d", len(certs))
 	}
 
 	if certs[0].Subject.CommonName != cert.Subject.CommonName {
@@ -179,6 +337,120 @@ func TestClient_CaCerts(t *testing.T) {
 	if certs[0].SerialNumber.Cmp(cert.SerialNumber) != 0 {
 		t.Fatalf("Expected SerialNumber to be %s, got %s", cert.SerialNumber, certs[0].SerialNumber)
 	}
+}
+
+func TestClient_CaCertsNoAliasSuccess(t *testing.T) {
+	cert, err := generateSelfSignedCertificate()
+	if err != nil {
+		t.Fatalf("failed to generate self-signed certificate: %s", err.Error())
+	}
+
+	caCertsResponder := func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("Request: %v", r)
+
+        if r.URL.Path != "/.well-known/est/cacerts" {
+            t.Fatalf("Expected URL path to be /.well-known/est/cacerts, got %s", r.URL.Path)
+        }
+
+		t.Logf("CaCerts request validated successfully")
+
+		b64Pkcs7 := exportCertificateToB64Pkcs7(cert)
+
+		w.Header().Set("Content-Type", "application/pkcs7-mime")
+		w.Header().Set("Content-Transfer-Encoding", "base64")
+		w.WriteHeader(200)
+		_, err = w.Write(b64Pkcs7)
+        if err != nil {
+            t.Fatalf("Failed to write response: %v", err)
+        }
+	}
+
+	testServer := httptest.NewTLSServer(http.HandlerFunc(caCertsResponder))
+	defer testServer.Close()
+
+	ctx := ctrl.LoggerInto(context.TODO(), logrtesting.New(t))
+
+	client, err := NewBuilder(testServer.URL).
+		WithContext(ctx).
+		WithClient(http.DefaultClient).
+		WithCaCertificates([]*x509.Certificate{testServer.Certificate()}).
+		Build()
+	if err != nil {
+		t.Fatalf("failed to create client: %s", err.Error())
+	}
+
+	certs, err := client.CaCerts("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(certs) != 1 {
+		t.Fatalf("Expected CaCerts to return exactly 1 certificate - got back %d", len(certs))
+	}
+
+	if certs[0].Subject.CommonName != cert.Subject.CommonName {
+		t.Fatalf("Expected CommonName to be %s, got %s", cert.Subject.CommonName, certs[0].Subject.CommonName)
+	}
+
+	if certs[0].SerialNumber.Cmp(cert.SerialNumber) != 0 {
+		t.Fatalf("Expected SerialNumber to be %s, got %s", cert.SerialNumber, certs[0].SerialNumber)
+	}
+}
+
+func TestClient_CaCertsFailure(t *testing.T) {
+	estAlias := "testAlias"
+
+    testCases := []struct {
+        name string
+        handlerFunc func(w http.ResponseWriter, r *http.Request)
+        expectedError error
+    }{
+        {
+            name: "InvalidContentType",
+            handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+                w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(200)
+            },
+            expectedError: fmt.Errorf("unexpected content-type: application/json"),
+        },
+        {
+            name: "InvalidContentTransferEncoding",
+            handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+                w.Header().Set("Content-Type", "application/pkcs7-mime")
+                w.Header().Set("Content-Transfer-Encoding", "binary")
+                w.WriteHeader(200)
+            },
+            expectedError: fmt.Errorf("unexpected content-transfer-encoding: binary"),
+        },
+    }
+
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            testServer := httptest.NewTLSServer(http.HandlerFunc(tc.handlerFunc))
+            defer testServer.Close()
+
+            ctx := ctrl.LoggerInto(context.TODO(), logrtesting.New(t))
+
+            client, err := NewBuilder(testServer.URL).
+                WithContext(ctx).
+                WithClient(http.DefaultClient).
+                WithCaCertificates([]*x509.Certificate{testServer.Certificate()}).
+                WithDefaultESTAlias(estAlias).
+                Build()
+            if err != nil {
+                t.Fatalf("failed to create client: %s", err.Error())
+            }
+
+            _, err = client.CaCerts(estAlias)
+            if err == nil {
+                t.Fatal("Expected SimpleEnroll to return an error")
+            }
+
+            if err.Error() != tc.expectedError.Error() {
+                t.Fatalf("Expected error to be %q, got %q", tc.expectedError.Error(), err.Error())
+            }
+        })
+    }
 }
 
 func generateSelfSignedCertificate() (*x509.Certificate, error) {

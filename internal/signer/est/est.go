@@ -63,6 +63,7 @@ func NewBuilder(hostname string) *Builder {
 	return &Builder{
 		hostname: cleanHostname,
 		client:   http.DefaultClient,
+        errs:     errs,
 	}
 }
 
