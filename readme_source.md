@@ -1,27 +1,3 @@
-
-# ejbca-k8s-csr-signer
-
-An implementation of the Kubernetes CSR signing API that routes Certificate Signing Requests from the cluster to the EJBCA Enrollment API
-
-#### Integration status: Pilot - Ready for use in test environments. Not for use in production.
-
-## About the Keyfactor API Client
-
-This API client allows for programmatic management of Keyfactor resources.
-
-## Support for ejbca-k8s-csr-signer
-
-ejbca-k8s-csr-signer is open source and supported on best effort level for this tool/library/client.  This means customers can report Bugs, Feature Requests, Documentation amendment or questions as well as requests for customer information required for setup that needs Keyfactor access to obtain. Such requests do not follow normal SLA commitments for response or resolution. If you have a support issue, please open a support ticket via the Keyfactor Support Portal at https://support.keyfactor.com/
-
-###### To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, use the **[Pull requests](../../pulls)** tab.
-
----
-
-
----
-
-
-
 <a href="https://kubernetes.io">
     <img src="https://kubernetes.io/images/favicon.png" alt="Kubernetes logo" title="K8s" align="left" height="50" />
 </a>
@@ -55,4 +31,3 @@ The EJBCA CSR Signer v2.0 has breaking changes from v1.0. To migrate from v1.0 t
   * [End Entity Name Selection](docs/endentitynamecustomization.markdown)
 * [Testing](docs/testing.markdown)
 * [License](LICENSE)
-

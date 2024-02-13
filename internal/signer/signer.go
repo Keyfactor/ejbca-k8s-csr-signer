@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 Keyfactor
+Copyright © 2024 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,17 +24,18 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/rand"
+	"net/http"
+	"strconv"
+
 	"github.com/Keyfactor/ejbca-go-client-sdk/api/ejbca"
-	ejbcaest "github.com/Keyfactor/ejbca-go-client/pkg/ejbca"
+	"github.com/Keyfactor/ejbca-k8s-csr-signer/internal/signer/est"
 	"github.com/Keyfactor/ejbca-k8s-csr-signer/pkg/util"
 	"github.com/go-logr/logr"
 	certificates "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"math/rand"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"strconv"
 )
 
 // ejbcaSigner implements both Signer and Builder interfaces
@@ -77,7 +78,7 @@ type ejbcaSigner struct {
 	caChain           []*x509.Certificate
 	preflightComplete bool
 
-	estClient  *ejbcaest.Client
+	estClient  est.Client
 	restClient *ejbca.APIClient
 }
 
@@ -326,7 +327,7 @@ func (s *ejbcaSigner) newRestClient() (*ejbca.APIClient, error) {
 
 // newEstClient creates a new EJBCA EST API client using the EJBCA Go Client.
 // It sets up the client to use HTTP Basic Auth with the username and password from the credentials secret
-func (s *ejbcaSigner) newEstClient() (*ejbcaest.Client, error) {
+func (s *ejbcaSigner) newEstClient() (est.Client, error) {
 	// Get username and password from secret
 	username, ok := s.creds.Data["username"]
 	if !ok {
@@ -338,40 +339,18 @@ func (s *ejbcaSigner) newEstClient() (*ejbcaest.Client, error) {
 		return nil, errors.New("password not found in secret data")
 	}
 
-	ejbcaConfig := &ejbcaest.Config{
-		DefaultESTAlias: s.defaultESTAlias,
-	}
-
-	// Copy the root CAs to a file on the filesystem
-	if len(s.caChain) > 0 {
-		bytes, err := util.CompileCertificatesToPemBytes(s.caChain)
-		if err != nil {
-			s.logger.Error(err, "Failed to compile CA certificates to PEM bytes")
-			return nil, err
-		}
-		err = os.WriteFile("/tmp/cacerts.pem", bytes, 0644)
-		if err != nil {
-			return nil, err
-		}
-
-		ejbcaConfig.CAFile = "/tmp/cacerts.pem"
-	}
-
-	ejbcaFactory, err := ejbcaest.ClientFactory(s.hostname, ejbcaConfig)
+	client, err := est.NewBuilder(s.hostname).
+		WithContext(s.ctx).
+		WithClient(http.DefaultClient).
+		WithCaCertificates(s.caChain).
+		WithBasicAuth(string(username), string(password)).
+		WithDefaultESTAlias(s.defaultESTAlias).
+		Build()
 	if err != nil {
-		s.logger.Error(err, "Failed to create EJBCA EST client factory")
-		return nil, err
+		return nil, fmt.Errorf("Error creating EST client: %s", err)
 	}
 
-	s.logger.Info("Creating EJBCA EST client")
-
-	ejbcaClient, err := ejbcaFactory.NewESTClient(string(username), string(password))
-	if err != nil {
-		s.logger.Error(err, "Failed to create EJBCA EST client")
-		return nil, err
-	}
-
-	return ejbcaClient, nil
+	return client, nil
 }
 
 // Build builds the Signer from the Builder, but secretly returns the Builder since it implements
@@ -693,18 +672,14 @@ func (s *ejbcaSigner) signWithEst(csr *certificates.CertificateSigningRequest) (
 	// Decode PEM encoded PKCS#10 CSR to DER
 	block, _ := pem.Decode(csr.Spec.Request)
 
-	if s.estClient.EST == nil {
-		return nil, errors.New("est client is nil - configuration error likely")
-	}
-
 	// Enroll CSR with simpleenroll
-	leaf, err := s.estClient.EST.SimpleEnroll(alias, base64.StdEncoding.EncodeToString(block.Bytes))
+	leaf, err := s.estClient.SimpleEnroll(alias, base64.StdEncoding.EncodeToString(block.Bytes))
 	if err != nil {
 		return nil, err
 	}
 
 	// Grab the CA chain of trust from cacerts
-	chain, err := s.estClient.EST.CaCerts(alias)
+	chain, err := s.estClient.CaCerts(alias)
 	if err != nil {
 		return nil, err
 	}
