@@ -50,6 +50,23 @@ entries:
     version: 1.0.0
   ejbca-k8s-csr-signer:
   - apiVersion: v2
+    appVersion: v2.1.0
+    created: "2024-02-21T21:29:57.511956325Z"
+    description: A Helm chart for the EJBCA Kubernetes CSR Signer
+    digest: 7b05a95f4d9f38a00ff87f3fe78dd650212ebd0910bec19f5405c2354989a5a8
+    maintainers:
+    - email: hayden.roszell@keyfactor.com
+      name: Hayden Roszell
+    - email: sven.rajala@keyfactor.com
+      name: Sven Rajala
+    - email: jd.kilgallin@keyfactor.com
+      name: JD Kilgallin
+    name: ejbca-k8s-csr-signer
+    type: application
+    urls:
+    - https://github.com/Keyfactor/ejbca-k8s-csr-signer/releases/download/ejbca-k8s-csr-signer-2.1.0/ejbca-k8s-csr-signer-2.1.0.tgz
+    version: 2.1.0
+  - apiVersion: v2
     appVersion: v2.0.0
     created: "2024-01-10T17:05:49.074079746Z"
     description: A Helm chart for the EJBCA Kubernetes CSR Signer
@@ -66,4 +83,4 @@ entries:
     urls:
     - https://github.com/Keyfactor/ejbca-k8s-csr-signer/releases/download/ejbca-k8s-csr-signer-2.0.0/ejbca-k8s-csr-signer-2.0.0.tgz
     version: 2.0.0
-generated: "2024-01-10T17:05:49.074097519Z"
+generated: "2024-02-21T21:29:57.511970451Z"
