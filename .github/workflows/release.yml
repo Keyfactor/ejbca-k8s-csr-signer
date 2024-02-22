@@ -36,7 +36,7 @@ jobs:
       # Set version from DOCKER_METADATA_OUTPUT_VERSION as environment variable
       - name: Set Version
         run: |
-          echo "VERSION=${DOCKER_METADATA_OUTPUT_VERSION:8}" >> $GITHUB_ENV
+          echo "VERSION=${DOCKER_METADATA_OUTPUT_VERSION:8}.0" >> $GITHUB_ENV # Eventually will build this into Keyfactor bootstrap
 
       # Change version and appVersion in Chart.yaml to the tag in the closed PR
       - name: Update Helm App/Chart Version
