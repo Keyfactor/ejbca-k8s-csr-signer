@@ -1,3 +1,12 @@
+<!--EJBCA Community logo -->
+<a href="https://ejbca.org">
+    <img src="community-ejbca.png?raw=true)" alt="EJBCA logo" title="EJBCA" height="70" />
+</a>
+<!--EJBCA Enterprise logo -->
+<a href="https://www.keyfactor.com/products/ejbca-enterprise/">
+    <img src="keyfactor-ejbca-enterprise.png?raw=true)" alt="EJBCA logo" title="EJBCA" height="70" />
+</a>
+
 # EJBCA Certificate Signing Request Proxy for K8s 
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/Keyfactor/ejbca-k8s-csr-signer)](https://goreportcard.com/report/github.com/Keyfactor/ejbca-k8s-csr-signer) [![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/keyfactor/ejbca-k8s-csr-signer?label=release)](https://github.com/keyfactor/ejbca-k8s-csr-signer/releases) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) [![license](https://img.shields.io/github/license/keyfactor/ejbca-k8s-csr-signer.svg)]()
@@ -8,9 +17,13 @@ The EJBCA Certificate Signing Request Proxy for K8s forwards certificate signing
 
 To get started with the EJBCA Certificate Signing Request (CSR) Proxy for K8s, see [Getting started](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/docs/getting-started.md).
 
-For more information on usage, configuration, and integration, see [Docs](https://github.com/Keyfactor/ejbca-k8s-csr-signer/tree/main/docs)  
+For more information on usage, configuration, and integration, see the following links:  
+* [Demo usage with Istio](docs/istio-deployment.markdown)
+* [Runtime Customization](docs/annotations.markdown)
+* [End Entity Name Selection](docs/endentitynamecustomization.markdown)
+* [Testing](docs/testing.markdown)
 
-#### Minimum System Requirements
+#### System Requirements
 
 To run the EJBCA K8s CSR Signer container a system should fulfill these minimum requirements:
 
@@ -21,19 +34,21 @@ To run the EJBCA K8s CSR Signer container a system should fulfill these minimum 
 
 The EJBCA CSR Signer v2.0 has breaking changes from v1.0. To migrate from v1.0 to v2.0, uninstall the v1.0 deployment and install the v2.0 deployment. The v2.0 deployment uses the same configuration as v1.0, but the configuration is now stored in a Kubernetes ConfigMap. See the [Getting Started](docs/getting-started.markdown) to install the v2.0 deployment.
 
-## Community supported
-In the [Keyfactor Community](https://www.keyfactor.com/community/), we welcome contributions. The Community software is open-source and community-supported, meaning that **no SLA** is applicable.
+## Community Support
+In the [Keyfactor Community](https://www.keyfactor.com/community/), we welcome contributions. 
 
-* To report a problem or suggest a new feature, use **[Issues](Issues)**.
+The Community software is open-source and community-supported, meaning that **no SLA** is applicable.
 
-* If you want to contribute actual bug fixes or proposed enhancements, see the **[Contributing Guidelines](CONTRIBUTING.md)** and use **[Pull requests](Pulls)**.
-
-* See also [EJBCA Community Support](https://github.com/Keyfactor/ejbca-ce/tree/main?tab=readme-ov-file#community-support) 
+* To report a problem or suggest a new feature, go to [Issues](../../issues).
+* If you want to contribute actual bug fixes or proposed enhancements, see the [Contributing Guidelines](CONTRIBUTING.md) and go to [Pull requests](../../pulls).
 
 ## Commercial Support
 
-Commercial support is available for **[EJBCA Enterprise](https://www.keyfactor.com/products/ejbca-enterprise/)**.
+Commercial support is available for [EJBCA Enterprise](https://www.keyfactor.com/products/ejbca-enterprise/).
 
 ## License
+For license information, see [LICENSE](LICENSE). 
 
-This tool is licensed under the LGPL License, see **[License](License)**.
+## Related Projects
+See all [Keyfactor EJBCA GitHub projects](https://github.com/orgs/Keyfactor/repositories?q=ejbca). 
+
