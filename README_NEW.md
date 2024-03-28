@@ -1,10 +1,10 @@
 <!--EJBCA Community logo -->
 <a href="https://ejbca.org">
-    <img src=".github/images/community-ejbca.png?raw=true)" alt="EJBCA logo" title="EJBCA" height="70" />
+    <img src="community-ejbca.png?raw=true)" alt="EJBCA logo" title="EJBCA" height="70" />
 </a>
 <!--EJBCA Enterprise logo -->
 <a href="https://www.keyfactor.com/products/ejbca-enterprise/">
-    <img src=".github/images/keyfactor-ejbca-enterprise.png?raw=true)" alt="EJBCA logo" title="EJBCA" height="70" />
+    <img src="keyfactor-ejbca-enterprise.png?raw=true)" alt="EJBCA logo" title="EJBCA" height="70" />
 </a>
 
 # EJBCA Certificate Signing Request Proxy for K8s 
@@ -51,3 +51,4 @@ For license information, see [LICENSE](LICENSE).
 
 ## Related Projects
 See all [Keyfactor EJBCA GitHub projects](https://github.com/orgs/Keyfactor/repositories?q=ejbca). 
+
